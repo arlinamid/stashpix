@@ -12,16 +12,22 @@ degradation**, exposed through a unified **CLI**, a desktop **GUI**, and a REST
 2. **Robust DCT watermark** (`layers/robust.py`) — a 128-bit ID embedded in
    mid-frequency DCT coefficients with perceptually adaptive QIM (Watson JND).
    Survives JPEG/resize; the message is stored in a **registry** keyed by the ID.
-3. **Geometric synchronizer** (`layers/geometry.py`) — three modes (optional,
+3. **Geometric synchronizer** (`layers/geometry.py`) — four modes (optional,
    needs OpenCV):
    - *Auto-match (registry as image index)*: at embed time a downscaled reference
      copy of the stego is stored in the registry; plain `extract` (no reference
      flag) then SIFT-matches a suspect against **every** stored reference and
      self-recovers — even from a rotated / occluded **sub-image** dropped into
      another picture. This solves "recognize a piece of our image in the wild".
-   - *Reference-based* (`extract-geo`): SIFT + homography re-align to a reference
-     you pass explicitly. Handles arbitrary rotation, scaling, sub-image paste and
-     partial occlusion.
+   - *Reference-based* (`extract-geo`): SIFT + **homography** re-align to a
+     reference you pass explicitly. Handles rotation, scaling, sub-image paste and
+     partial occlusion (projective / “flat” geometry).
+   - *Morph sync (TPS + flow)*: if homography is not enough, a second pass fits a
+     **Thin-Plate Spline** over SIFT matches (local-MAD outlier filter, ~128
+     control points) and refines with dense **DIS optical flow**. Recovers
+     non-linear morphs such as swirl / elastic / wave, and composites like
+     morph + resize + green canvas + ~50% occlusion. Reported as
+     `layer_key=geo_tps`; toggle with `ExtractConfig.morph_geo` (default on).
    - *Reference-free (blind)*: background-colour segmentation + deskew +
      orientation probe. Recovers images reframed / letterboxed / cropped onto a
      **solid background** (0/90/180/270°). Arbitrary fine rotation with no
@@ -32,7 +38,7 @@ degradation**, exposed through a unified **CLI**, a desktop **GUI**, and a REST
 
 On extraction the engine walks the layers in order of recovery strength: LSB first
 (full message), then robust ID → registry, then blind deskew, then auto-match
-against the registry's reference index.
+(homography, then morph TPS+flow) against the registry's reference index.
 
 ## Architecture
 
@@ -194,11 +200,11 @@ The API exposes the status at `GET /api/license`.
 
 ### Magyar összefoglaló
 
-Több rétegű szteganográfia (LSB + robusztus DCT-vízjel + geometriai szinkron +
-látható vízjel) egységes **CLI**-vel, **GUI**-val és **REST API**-val, teljes
-**angol/magyar i18n**-nel. A felület nyelve: `stego --lang hu …`, vagy a
-`STEGOSUITE_LANG=hu` környezeti változó. Telepítés és használat a fenti angol
-szakaszok szerint.
+Több rétegű szteganográfia (LSB + robusztus DCT-vízjel + geometriai szinkron —
+homográfia és **morph TPS+flow** — + látható vízjel) egységes **CLI**-vel,
+**GUI**-val és **REST API**-val, teljes **angol/magyar i18n**-nel. A felület
+nyelve: `stego --lang hu …`, vagy a `STEGOSUITE_LANG=hu` környezeti változó.
+Telepítés és használat a fenti angol szakaszok szerint.
 
 **Szerző:** Rózsavölgyi János — GitHub: [@arlinamid](https://github.com/arlinamid)
 
