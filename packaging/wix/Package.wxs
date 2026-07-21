@@ -23,7 +23,7 @@
     <MajorUpgrade DowngradeErrorMessage="A newer version of Stegosuite is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
-    <Icon Id="StegoIcon" SourceFile="$(var.StageDir)\assets\icon.ico" />
+    <Icon Id="StegoIcon" SourceFile="$(var.IconFile)" />
     <Property Id="ARPPRODUCTICON" Value="StegoIcon" />
 
     <StandardDirectory Id="ProgramFiles64Folder">

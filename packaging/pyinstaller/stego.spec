@@ -57,8 +57,6 @@ gui = Analysis(
     noarchive=False,
 )
 
-MERGE((cli, "stego_cli", "stego"), (gui, "stego_gui", "stego-gui"))
-
 cli_pyz = PYZ(cli.pure, cli.zipped_data)
 cli_exe = EXE(
     cli_pyz, cli.scripts, [],

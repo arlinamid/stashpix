@@ -31,6 +31,7 @@ $OutDir = Join-Path $PSScriptRoot "out"
 $Spec = Join-Path $PSScriptRoot "pyinstaller\stego.spec"
 $Wxs = Join-Path $PSScriptRoot "wix\Package.wxs"
 $Msi = Join-Path $OutDir "Stegosuite-$Version.msi"
+$IconFile = Join-Path $Root "assets\icon.ico"
 
 Push-Location $Root
 try {
@@ -46,7 +47,8 @@ try {
     New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 
     Write-Host "==> WiX MSI" -ForegroundColor Cyan
-    wix build $Wxs -d StageDir="$Dist" -d Version="$Version" -o $Msi
+    wix build $Wxs -acceptEula wix7 -arch x64 `
+        -d StageDir="$Dist" -d Version="$Version" -d IconFile="$IconFile" -o $Msi
 
     Write-Host "`nDone:" -ForegroundColor Green
     Write-Host "  bundle : $Dist"

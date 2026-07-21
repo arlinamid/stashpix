@@ -33,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - `stego gui` is no longer blocked by the CLI acceptance gate in non-interactive
   contexts; the GUI handles acceptance itself.
+- Packaging: removed `MERGE()` from the PyInstaller spec so the bundled
+  `stego-gui.exe` no longer fails with "Failed to load Python DLL" (both
+  executables now share one deduplicated `_internal`).
+- Packaging: WiX installer builds under v7 (`-acceptEula wix7`, explicit `-arch
+  x64`) and resolves the ARP/shortcut icon via a dedicated `IconFile` binding.
 
 ## [1.0.0] - 2026-07-21
 
