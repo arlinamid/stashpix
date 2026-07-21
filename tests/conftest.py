@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from stegosuite.engine import StegoEngine
-from stegosuite.registry import Registry
+from stashpix.engine import StegoEngine
+from stashpix.registry import Registry
 
 ASSETS = os.path.join(os.path.dirname(__file__), "assets")
 
@@ -15,7 +15,7 @@ ASSETS = os.path.join(os.path.dirname(__file__), "assets")
 @pytest.fixture()
 def tmp_registry(tmp_path, monkeypatch):
     path = tmp_path / "registry.json"
-    monkeypatch.setenv("STEGOSUITE_REGISTRY", str(path))
+    monkeypatch.setenv("STASHPIX_REGISTRY", str(path))
     return Registry(str(path))
 
 

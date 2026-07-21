@@ -5,6 +5,23 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-07-21
+
+### Changed
+- **Rebrand to Stashpix** — package `stashpix`, CLI `stashpix` / `stashpix-gui`,
+  data dir `~/.stashpix` (auto-migrates from `~/.stego`).
+- **Security hardening:** Argon2id key derivation, AES-GCM for LSB payloads,
+  encrypted registry at rest, optional `STASHPIX_API_KEY` for REST endpoints.
+- **pHash/dHash shortlist** before linear SIFT auto-match over registry refs.
+- **opencv-contrib-python** replaces `opencv-python` (TPS requires contrib).
+- README repositioned as robust image ID / ownership recovery (Digimarc-style pitch);
+  LSB no longer claimed to survive resize/crop.
+
+### Breaking
+- CLI command renamed from `stego` to `stashpix`.
+- LSB wire format v2 (AEAD); 1.2.x stego images need re-embed.
+- Registry file format encrypted; legacy plaintext JSON is read once and re-saved.
+
 ## [1.2.0] - 2026-07-21
 
 ### Added
@@ -33,9 +50,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **About / Névjegy** dialog in the GUI showing version, author, GitHub link,
   and license summary.
 - **License acceptance (EULA)** on first use, shared across the CLI, GUI, and
-  API and recorded per license version at `~/.stego/eula_accepted.json`.
+  API and recorded per license version at `~/.stashpix/eula_accepted.json`.
 - `stego license` command with `--status`, `--show`, `--accept`, and `--reset`;
-  a global `--accept-license` flag; the `STEGOSUITE_ACCEPT_LICENSE=1` override;
+  a global `--accept-license` flag; the `stashpix_ACCEPT_LICENSE=1` override;
   and a `GET /api/license` endpoint.
 - **Encoded Media** term in the license: commercial distribution of watermarked
   or otherwise encoded output (e.g. publication by an online newspaper) requires
@@ -53,7 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `stego gui` is no longer blocked by the CLI acceptance gate in non-interactive
   contexts; the GUI handles acceptance itself.
 - Packaging: removed `MERGE()` from the PyInstaller spec so the bundled
-  `stego-gui.exe` no longer fails with "Failed to load Python DLL" (both
+  `stashpix-gui.exe` no longer fails with "Failed to load Python DLL" (both
   executables now share one deduplicated `_internal`).
 - Packaging: WiX installer builds under v7 (`-acceptEula wix7`, explicit `-arch
   x64`) and resolves the ARP/shortcut icon via a dedicated `IconFile` binding.
@@ -61,7 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-07-21
 
 ### Added
-- Initial modular `stegosuite` package: multi-layer image steganography
+- Initial modular `stashpix` package: multi-layer image steganography
   (LSB + robust DCT watermark + geometric synchronization + visible watermark)
   with graceful degradation.
 - Unified `stego` CLI, Tkinter desktop GUI, and FastAPI REST API with an
@@ -69,11 +86,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full English/Hungarian internationalization across the CLI, GUI, and API.
 - JSON registry with reference-image storage, SIFT-based auto-match, and blind
   reference-free geometric recovery.
-- Cross-platform per-user data storage under `~/.stego` (with environment
+- Cross-platform per-user data storage under `~/.stashpix` (with environment
   overrides).
 - Standalone bundling via PyInstaller and a Windows MSI via WiX v4+.
 - Released under the PolyForm Noncommercial License 1.0.0.
 
-[1.2.0]: https://github.com/arlinamid/stegosuite/releases/tag/v1.2.0
-[1.1.0]: https://github.com/arlinamid/stegosuite/releases/tag/v1.1.0
-[1.0.0]: https://github.com/arlinamid/stegosuite/releases/tag/v1.0.0
+[1.3.0]: https://github.com/arlinamid/stashpix/releases/tag/v1.3.0
+[1.2.0]: https://github.com/arlinamid/stashpix/releases/tag/v1.2.0
+[1.1.0]: https://github.com/arlinamid/stashpix/releases/tag/v1.1.0
+[1.0.0]: https://github.com/arlinamid/stashpix/releases/tag/v1.0.0

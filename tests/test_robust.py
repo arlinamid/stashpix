@@ -4,8 +4,8 @@ import io
 
 from PIL import Image
 
-from stegosuite.layers.robust import RobustWatermarkLayer
-from stegosuite.config import EmbedConfig, ExtractConfig
+from stashpix.layers.robust import RobustWatermarkLayer
+from stashpix.config import EmbedConfig, ExtractConfig
 
 
 def _jpeg(img, q):

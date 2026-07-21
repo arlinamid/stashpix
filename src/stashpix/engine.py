@@ -77,7 +77,7 @@ class StegoEngine:
             info["lsb"] = outcome.info
             info["layers"].append("lsb")
 
-        # Store a reference copy of the final stego so a later extraction can
+        # Store a reference copy of the final stashpix so a later extraction can
         # auto-match it (SIFT) even when only a rotated/occluded PART of it
         # appears inside another image — no manual reference needed.
         if config.enable_robust and info.get("robust_id") and self.geometry.available:
@@ -133,16 +133,14 @@ class StegoEngine:
                 info["layer_key"] = "robust"
                 return result.message, info
 
-        # 3) Reference-free geometric recovery (deskew/crop + orientation probe).
-        #    Handles rotated / reframed / partially occluded images without a
-        #    reference, as long as the watermarked patch is textured.
+        # 3) Reference-free geometric recovery
         if getattr(config, "blind_geo", True) and self.geometry.available:
             msg = self._blind_extract(img, config, info)
             if msg is not None:
                 return msg, info
 
             # 4) Auto-match against every registered reference (SIFT). Recovers a
-            #    rotated/occluded SUB-IMAGE of one of our stego images with no
+            #    rotated/occluded SUB-IMAGE of one of our stashpix images with no
             #    manual reference — the registry acts as an image index.
             msg = self._registry_geo_extract(img, config, info)
             if msg is not None:
@@ -152,15 +150,20 @@ class StegoEngine:
 
     def _registry_geo_extract(self, img: Image.Image, config: ExtractConfig,
                               info: Dict[str, Any]) -> Optional[str]:
-        entries = self.registry.all()
         try:
             recv_rgb, k1, d1 = self.geometry.features(img)
         except StegoError as e:
             info["auto_ref"] = {"used": True, "error": str(e)}
             return None
+
+        ranked = self.registry.ranked_reference_ids(img)
+        candidate_ids = [id_hex for id_hex, _dist in ranked]
+        if not candidate_ids:
+            candidate_ids = list(self.registry.all().keys())
+
         scanned = 0
         best = {"inliers": 0}
-        for id_hex in entries:
+        for id_hex in candidate_ids:
             ref_path = self.registry.reference_path(id_hex)
             if not ref_path:
                 continue
@@ -173,7 +176,8 @@ class StegoEngine:
                 result = self.robust.extract(warped, config)
                 if result is not None and result.message is not None:
                     info["auto_ref"] = {"used": True, "scanned": scanned,
-                                        "matched": id_hex, "mode": "homography", **stat}
+                                        "matched": id_hex, "mode": "homography",
+                                        "phash_shortlist": len(candidate_ids), **stat}
                     info["layer"] = t("layer.robust.name")
                     info["layer_key"] = "robust"
                     info["robust_info"] = result.info
@@ -187,14 +191,15 @@ class StegoEngine:
                 result = self.robust.extract(warped_tps, config)
                 if result is not None and result.message is not None:
                     info["auto_ref"] = {"used": True, "scanned": scanned,
-                                        "matched": id_hex, **stat_tps}
+                                        "matched": id_hex,
+                                        "phash_shortlist": len(candidate_ids), **stat_tps}
                     info["layer"] = t("layer.geo_tps.name")
                     info["layer_key"] = "geo_tps"
                     info["robust_info"] = result.info
                     info["robust_id"] = result.info.get("id")
                     return result.message
         info["auto_ref"] = {"used": True, "scanned": scanned, "matched": None,
-                            "best": best}
+                            "phash_shortlist": len(candidate_ids), "best": best}
         return None
 
     def _blind_extract(self, img: Image.Image, config: ExtractConfig,

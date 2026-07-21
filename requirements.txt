@@ -2,11 +2,13 @@
 numpy>=1.21
 Pillow>=9.0
 reedsolo>=1.7
+argon2-cffi>=23.1
+cryptography>=41.0
 
 # Optional (install as needed):
-#   Geometric (SIFT) synchronization:
-#     pip install opencv-python
-#   REST API / SaaS backend:
+#   Geometric (SIFT + TPS) synchronization:
+#     pip install opencv-contrib-python
+#   REST API backend:
 #     pip install fastapi "uvicorn[standard]" python-multipart
 #   Tests:
 #     pip install pytest

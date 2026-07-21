@@ -90,7 +90,7 @@ CATALOG = {
     "cli.extract.none": (
         "Egyik réteg sem adott vissza üzenetet (rossz kulcs, vagy a kép túl sérült / "
         "AI-újragenerált). Ha a kép el lett forgatva, másik képbe vágva vagy részben "
-        "kitakarva, próbáld: stego extract-geo -i <kép> -r <eredeti> -k <kulcs>"
+        "kitakarva, próbáld: stashpix extract-geo -i <kép> -r <eredeti> -k <kulcs>"
     ),
     "cli.extract.layer": "réteg: {layer}",
     "cli.extract.saved": "Üzenet elmentve: {path}",
@@ -102,7 +102,7 @@ CATALOG = {
     "cli.error": "HIBA: {detail}",
     "cli.serve.starting": "Szerver indul: http://{host}:{port} (web UI: /, kutatás: /research, API dok: /docs)",
     "cli.serve.need_api": (
-        "Az API-hoz extra csomagok kellenek: pip install \"stegosuite[api]\" "
+        "Az API-hoz extra csomagok kellenek: pip install \"stashpix[api]\" "
         "(vagy fastapi uvicorn python-multipart)."
     ),
 
@@ -112,9 +112,9 @@ CATALOG = {
     "gui.tab.decode": "  🔓 Kiolvasás  ",
     "gui.language": "Nyelv:",
     "gui.about": "Névjegy",
-    "gui.about.title": "A Stegosuite névjegye",
+    "gui.about.title": "A stashpix névjegye",
     "gui.about.body": (
-        "Stegosuite v{version}\n"
+        "stashpix v{version}\n"
         "Több rétegű kép-szteganográfia — LSB + robusztus DCT + látható vízjel.\n\n"
         "Szerző: Rózsavölgyi János\n"
         "GitHub: https://github.com/arlinamid\n\n"
@@ -144,7 +144,7 @@ CATALOG = {
     ),
     "gui.message": "Rejtendő üzenet:",
     "gui.encode_btn": "Üzenet elrejtése",
-    "gui.stego_image": "Sztego-kép:",
+    "gui.stashpix_image": "Sztego-kép:",
     "gui.reference_image": "Referencia (opcionális):",
     "gui.reference_hint": "Gyanús/módosított képhez (elforgatott, levágott, másik képbe "
                           "illesztett) válaszd ki itt az eredetit az újraigazításhoz.",
@@ -192,7 +192,7 @@ CATALOG = {
     ),
 
     # -------------------------------------------------------------------- API
-    "api.title": "Stegosuite API",
+    "api.title": "stashpix API",
     "api.embed.ok": "Az üzenet sikeresen beágyazva.",
     "api.extract.ok": "Üzenet kiolvasva.",
     "api.extract.none": "Egyik réteg sem adott vissza üzenetet.",
@@ -201,7 +201,7 @@ CATALOG = {
     "api.err.no_message": "Nincs megadva üzenet.",
 
     # ----------------------------------------------------------------- web UI
-    "web.title": "Stegosuite",
+    "web.title": "stashpix",
     "web.subtitle": "Több rétegű szteganográfia — LSB + robusztus DCT-vízjel + látható vízjel",
     "web.status.online": "elérhető",
     "web.status.offline": "nem elérhető",
@@ -257,9 +257,9 @@ CATALOG = {
     "web.about.research": "Kutatási dashboard megnyitása",
 
     # ------------------------------------------------------------------- EULA
-    "eula.title": "Licencszerződés — Stegosuite",
+    "eula.title": "Licencszerződés — stashpix",
     "eula.intro": (
-        "A Stegosuite v{version} a PolyForm Noncommercial License 1.0.0 alatt áll, "
+        "A stashpix v{version} a PolyForm Noncommercial License 1.0.0 alatt áll, "
         "kiegészítve a Kódolt Média záradékkal. Kérjük, olvasd el és fogadd el a "
         "feltételeket a szoftver használata előtt."
     ),
@@ -285,9 +285,9 @@ CATALOG = {
     "eula.accepted": "A licencfeltételek elfogadva (v{version}). Rögzítve: {path}.",
     "eula.declined": "A licencfeltételek nem lettek elfogadva — kilépés.",
     "eula.required": (
-        "A Stegosuite használata előtt el kell fogadnod a licencfeltételeket. "
+        "A stashpix használata előtt el kell fogadnod a licencfeltételeket. "
         "Indíts interaktív terminált és válaszolj a kérdésre, add meg a "
-        "--accept-license kapcsolót, vagy állítsd be a STEGOSUITE_ACCEPT_LICENSE=1 "
+        "--accept-license kapcsolót, vagy állítsd be a stashpix_ACCEPT_LICENSE=1 "
         "változót. Teljes szöveg: LICENSE."
     ),
     "eula.status.accepted": "Elfogadva: v{version}, {when} (mód: {method}).",
@@ -299,5 +299,5 @@ CATALOG = {
     "cli.arg.license_reset": "Elfogadás visszaállítása (a feltételek újra megjelennek).",
     "eula.reset.done": "Az elfogadás visszaállítva — a feltételek legközelebb újra megjelennek.",
     "eula.reset.none": "Nincs elfogadási rekord; nincs mit visszaállítani.",
-    "cli.license.header": "Stegosuite licenc állapot",
+    "cli.license.header": "stashpix licenc állapot",
 }

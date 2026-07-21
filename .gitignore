@@ -11,9 +11,9 @@ dist/
 packaging/out/
 
 # Local data / runtime
-.stego/
+.stashpix/
 registry.json
-stego_refs/
+stashpix_refs/
 
 # Stray test/debug artifacts at repo root
 /test_image.png

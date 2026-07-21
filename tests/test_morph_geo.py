@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from PIL import Image
 
-from stegosuite.config import EmbedConfig, ExtractConfig
+from stashpix.config import EmbedConfig, ExtractConfig
 
 from tests.geo_helpers import elastic, perspective, require_cv2, swirl, wave
 

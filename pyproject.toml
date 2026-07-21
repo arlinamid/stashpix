@@ -3,14 +3,14 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "stegosuite"
-version = "1.2.0"
-description = "Multi-layer steganography suite (LSB + robust DCT watermark + visible watermark) with unified CLI, desktop GUI and REST API."
+name = "stashpix"
+version = "1.3.0"
+description = "Robust image ID and steganography — lock ownership into pixels (LSB + DCT watermark + morph sync) with CLI, GUI and REST API."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { file = "LICENSE" }
 authors = [{ name = "Rózsavölgyi János" }]
-keywords = ["steganography", "watermark", "dct", "reed-solomon", "lsb"]
+keywords = ["steganography", "watermark", "image-id", "dct", "reed-solomon", "lsb", "stashpix"]
 classifiers = [
     "License :: Other/Proprietary License",
     "Programming Language :: Python :: 3",
@@ -22,11 +22,13 @@ dependencies = [
     "numpy>=1.21",
     "Pillow>=9.0",
     "reedsolo>=1.7",
+    "argon2-cffi>=23.1",
+    "cryptography>=41.0",
 ]
 
 [project.optional-dependencies]
 # Geometric synchronization (SIFT) for watermark re-alignment.
-geo = ["opencv-python>=4.6"]
+geo = ["opencv-contrib-python>=4.6"]
 # REST API / SaaS backend.
 api = ["fastapi>=0.110", "uvicorn[standard]>=0.27", "python-multipart>=0.0.9"]
 # Test tooling.
@@ -35,17 +37,17 @@ dev = ["pytest>=7.0"]
 packaging = ["pyinstaller>=6.0"]
 
 [project.urls]
-Homepage = "https://github.com/arlinamid"
+Homepage = "https://github.com/arlinamid/stashpix"
 
 [project.scripts]
-stego = "stegosuite.cli:main"
-stego-gui = "stegosuite.gui.app:main"
+stashpix = "stashpix.cli:main"
+stashpix-gui = "stashpix.gui.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-stegosuite = ["api/static/*"]
+stashpix = ["api/static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

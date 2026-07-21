@@ -90,7 +90,7 @@ CATALOG = {
     "cli.extract.none": (
         "No layer returned a message (wrong key, or the image is too damaged / "
         "AI-regenerated). If the image was rotated, cropped into another image or "
-        "partially occluded, try: stego extract-geo -i <image> -r <original> -k <key>"
+        "partially occluded, try: stashpix extract-geo -i <image> -r <original> -k <key>"
     ),
     "cli.extract.layer": "layer: {layer}",
     "cli.extract.saved": "Message saved: {path}",
@@ -102,7 +102,7 @@ CATALOG = {
     "cli.error": "ERROR: {detail}",
     "cli.serve.starting": "Starting server at http://{host}:{port} (web UI: /, research: /research, API docs: /docs)",
     "cli.serve.need_api": (
-        "The API requires extra packages: pip install \"stegosuite[api]\" "
+        "The API requires extra packages: pip install \"stashpix[api]\" "
         "(or fastapi uvicorn python-multipart)."
     ),
 
@@ -112,9 +112,9 @@ CATALOG = {
     "gui.tab.decode": "  Extract  ",
     "gui.language": "Language:",
     "gui.about": "About",
-    "gui.about.title": "About Stegosuite",
+    "gui.about.title": "About stashpix",
     "gui.about.body": (
-        "Stegosuite v{version}\n"
+        "stashpix v{version}\n"
         "Multi-layer image steganography — LSB + robust DCT + visible watermark.\n\n"
         "Author: Rózsavölgyi János\n"
         "GitHub: https://github.com/arlinamid\n\n"
@@ -144,7 +144,7 @@ CATALOG = {
     ),
     "gui.message": "Message to hide:",
     "gui.encode_btn": "Hide message",
-    "gui.stego_image": "Stego image:",
+    "gui.stashpix_image": "Stego image:",
     "gui.reference_image": "Reference (optional):",
     "gui.reference_hint": "For a suspicious/altered image (rotated, cropped, placed "
                           "into another picture) pick the original here to re-align it.",
@@ -192,7 +192,7 @@ CATALOG = {
     ),
 
     # -------------------------------------------------------------------- API
-    "api.title": "Stegosuite API",
+    "api.title": "stashpix API",
     "api.embed.ok": "Message embedded successfully.",
     "api.extract.ok": "Message extracted.",
     "api.extract.none": "No layer recovered a message.",
@@ -201,7 +201,7 @@ CATALOG = {
     "api.err.no_message": "No message provided.",
 
     # ----------------------------------------------------------------- web UI
-    "web.title": "Stegosuite",
+    "web.title": "stashpix",
     "web.subtitle": "Multi-layer steganography — LSB + robust DCT watermark + visible watermark",
     "web.status.online": "online",
     "web.status.offline": "offline",
@@ -233,7 +233,7 @@ CATALOG = {
     "web.btn.choose": "Choose file…",
     "web.msg.processing": "Processing…",
     "web.msg.embed_ok": "Embedded. Robust ID: {id}",
-    "web.msg.download": "Download stego image",
+    "web.msg.download": "Download stashpix image",
     "web.msg.no_message": "No layer recovered a message.",
     "web.msg.layer": "Recovering layer: {layer}",
     "web.msg.present": "PRESENT — the visible watermark matches (NCC {score}).",
@@ -257,9 +257,9 @@ CATALOG = {
     "web.about.research": "Open the research dashboard",
 
     # ------------------------------------------------------------------- EULA
-    "eula.title": "License Agreement — Stegosuite",
+    "eula.title": "License Agreement — stashpix",
     "eula.intro": (
-        "Stegosuite v{version} is licensed under the PolyForm Noncommercial "
+        "stashpix v{version} is licensed under the PolyForm Noncommercial "
         "License 1.0.0 with an additional Encoded Media term. Please read and "
         "accept the terms before using the software."
     ),
@@ -285,9 +285,9 @@ CATALOG = {
     "eula.accepted": "License terms accepted (v{version}). Recorded at {path}.",
     "eula.declined": "License terms not accepted — exiting.",
     "eula.required": (
-        "You must accept the license terms before using Stegosuite. Run an "
+        "You must accept the license terms before using stashpix. Run an "
         "interactive terminal and answer the prompt, pass --accept-license, or "
-        "set STEGOSUITE_ACCEPT_LICENSE=1. Full text: LICENSE."
+        "set stashpix_ACCEPT_LICENSE=1. Full text: LICENSE."
     ),
     "eula.status.accepted": "Accepted: v{version} on {when} (via {method}).",
     "eula.status.not_accepted": "Not accepted yet.",
@@ -298,5 +298,5 @@ CATALOG = {
     "cli.arg.license_reset": "Reset acceptance (the terms will be asked again).",
     "eula.reset.done": "License acceptance was reset — the terms will be asked again next time.",
     "eula.reset.none": "No acceptance record found; nothing to reset.",
-    "cli.license.header": "Stegosuite license status",
+    "cli.license.header": "stashpix license status",
 }

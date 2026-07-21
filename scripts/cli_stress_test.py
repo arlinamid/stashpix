@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Complete end-to-end stress test for the ``stego`` command-line interface.
+"""Complete end-to-end stress test for the ``stashpix`` command-line interface.
 
-This driver invokes the *real* CLI as a subprocess (``python -m stegosuite.cli``)
+This driver invokes the *real* CLI as a subprocess (``python -m stashpix.cli``)
 against an isolated temporary registry, and runs a full battery of scenarios:
 
   * argparse / UX (help, missing args, exit codes)
@@ -46,7 +46,7 @@ SAMPLE = ROOT / "tests" / "assets" / "sample.png"
 
 MESSAGE = "Titkos uzenet — 2026 ✓ αβγ δ RÉGI-új #steg"
 KEY = "s3cr3t-kulcs!"
-VISIBLE = "(c) Stegosuite 2026"
+VISIBLE = "(c) stashpix 2026"
 
 # ----------------------------------------------------------------------------- infra
 
@@ -87,10 +87,10 @@ class Runner:
         self.env = os.environ.copy()
         self.env["PYTHONPATH"] = str(SRC) + os.pathsep + self.env.get("PYTHONPATH", "")
         self.env["PYTHONIOENCODING"] = "utf-8"
-        self.env["STEGOSUITE_REGISTRY"] = str(workdir / "registry.json")
+        self.env["STASHPIX_REGISTRY"] = str(workdir / "registry.json")
 
     def cli(self, *args: str, lang: str | None = None):
-        cmd = [sys.executable, "-m", "stegosuite.cli"]
+        cmd = [sys.executable, "-m", "stashpix.cli"]
         if lang:
             cmd += ["--lang", lang]
         cmd += [str(a) for a in args]
@@ -206,13 +206,13 @@ def run_all(r: Runner, rep: Report, wd: Path) -> None:
 
     # ---- B. lossless round-trips -----------------------------------------
     print("\n[B] Lossless round-trips (LSB full recovery)")
-    stego = wd / "stego_photo.png"
-    p = r.cli("embed", "-i", photo, "-o", stego, "-m", MESSAGE, "-k", KEY,
+    stego_photo = wd / "stego_photo.png"
+    p = r.cli("embed", "-i", photo, "-o", stego_photo, "-m", MESSAGE, "-k", KEY,
               "--visible-text", VISIBLE, lang="en")
-    rep.add("embed (photo + key + visible) rc=0", p.returncode == 0 and stego.exists(),
+    rep.add("embed (photo + key + visible) rc=0", p.returncode == 0 and stego_photo.exists(),
             detail=f"rc={p.returncode}")
     out = wd / "rec.txt"
-    p = r.cli("extract", "-i", stego, "-k", KEY, "--output-file", out,
+    p = r.cli("extract", "-i", stego_photo, "-k", KEY, "--output-file", out,
               "--show-info", lang="en")
     rep.add("extract clean -> exact message via LSB",
             p.returncode == 0 and read(out) == MESSAGE and "layer_key: lsb" in p.stdout,
@@ -244,7 +244,7 @@ def run_all(r: Runner, rep: Report, wd: Path) -> None:
     # ---- C. key handling --------------------------------------------------
     print("\n[C] Key handling")
     out_wrong = wd / "rec_wrong.txt"
-    p = r.cli("extract", "-i", stego, "-k", "WRONG-KEY", "--output-file", out_wrong,
+    p = r.cli("extract", "-i", stego_photo, "-k", "WRONG-KEY", "--output-file", out_wrong,
               lang="en")
     rep.add("wrong key does NOT recover the message",
             p.returncode == 2 and read(out_wrong) != MESSAGE,
@@ -252,50 +252,50 @@ def run_all(r: Runner, rep: Report, wd: Path) -> None:
 
     # ---- D. lossy attacks -> robust ID + registry -------------------------
     print("\n[D] Lossy attacks -> graceful degradation (robust ID + registry)")
-    j85 = jpeg(stego, wd / "atk_jpeg85.jpg", 85)
+    j85 = jpeg(stego_photo, wd / "atk_jpeg85.jpg", 85)
     p = r.cli("extract", "-i", j85, "-k", KEY, "--show-info", lang="en")
     rep.add("JPEG q85: LSB dead, robust recovers message",
             p.returncode == 0 and MESSAGE in p.stdout and "layer_key: robust" in p.stdout,
             detail=f"rc={p.returncode}")
 
-    j60 = jpeg(stego, wd / "atk_jpeg60.jpg", 60)
+    j60 = jpeg(stego_photo, wd / "atk_jpeg60.jpg", 60)
     p = r.cli("extract", "-i", j60, "-k", KEY, "--show-info", lang="en")
     rep.add("JPEG q60: robust recovers message",
             p.returncode == 0 and MESSAGE in p.stdout,
             detail=f"rc={p.returncode}", critical=False)
 
-    rs = resize(stego, wd / "atk_resize.png", 0.75)
+    rs = resize(stego_photo, wd / "atk_resize.png", 0.75)
     p = r.cli("extract", "-i", rs, "-k", KEY, "--show-info", lang="en")
     rep.add("resize 75%: robust recovers message",
             p.returncode == 0 and MESSAGE in p.stdout,
             detail=f"rc={p.returncode}")
 
     # ---- E. geometric (sub-image paste) via extract-geo -------------------
-    # Use the structured photo stego as the sub-image (SIFT needs real features;
+    # Use the structured photo stashpix as the sub-image (SIFT needs real features;
     # pure random noise has no scale-stable keypoints).
     print("\n[E] Geometric recovery (SIFT sub-image)")
-    scene = paste_into_scene(stego, wd / "scene.png", canvas=(900, 820),
+    scene = paste_into_scene(stego_photo, wd / "scene.png", canvas=(900, 820),
                              offset=(120, 90), scale=1.0)
-    p = r.cli("extract-geo", "-i", scene, "-r", stego, "-k", KEY, "--show-info",
+    p = r.cli("extract-geo", "-i", scene, "-r", stego_photo, "-k", KEY, "--show-info",
               lang="en")
     geo_ok = p.returncode == 0 and MESSAGE in p.stdout
     rep.add("sub-image pasted into scene -> extract-geo recovers", geo_ok,
             detail=f"rc={p.returncode}", critical=False)
 
-    scene2 = paste_into_scene(stego, wd / "scene2.png", canvas=(900, 820),
+    scene2 = paste_into_scene(stego_photo, wd / "scene2.png", canvas=(900, 820),
                               offset=(150, 60), scale=0.9)
-    p = r.cli("extract-geo", "-i", scene2, "-r", stego, "-k", KEY, lang="en")
+    p = r.cli("extract-geo", "-i", scene2, "-r", stego_photo, "-k", KEY, lang="en")
     rep.add("sub-image scaled 0.9 + pasted -> extract-geo recovers",
             p.returncode == 0 and MESSAGE in p.stdout,
             detail=f"rc={p.returncode}", critical=False)
 
     # reference-free blind recovery: reframed on a solid background (no rotation)
-    frame_png = reframe_on_solid(stego, wd / "reframe.png")
+    frame_png = reframe_on_solid(stego_photo, wd / "reframe.png")
     p = r.cli("extract", "-i", frame_png, "-k", KEY, "--show-info", lang="en")
     rep.add("blind (no reference): reframed on solid bg -> recovers",
             p.returncode == 0 and MESSAGE in p.stdout and "blind_geo" in p.stdout,
             detail=f"rc={p.returncode}")
-    frame_jpg = reframe_on_solid(stego, wd / "reframe.jpg", as_jpeg=True)
+    frame_jpg = reframe_on_solid(stego_photo, wd / "reframe.jpg", as_jpeg=True)
     p = r.cli("extract", "-i", frame_jpg, "-k", KEY, lang="en")
     rep.add("blind (no reference): reframed on solid bg + JPEG -> recovers",
             p.returncode == 0 and MESSAGE in p.stdout,
@@ -316,7 +316,7 @@ def run_all(r: Runner, rep: Report, wd: Path) -> None:
 
     # ---- F. partial occlusion --------------------------------------------
     print("\n[F] Partial occlusion")
-    occ = occlude(stego, wd / "atk_occ.png", 0.30)
+    occ = occlude(stego_photo, wd / "atk_occ.png", 0.30)
     p = r.cli("extract", "-i", occ, "-k", KEY, lang="en")
     rep.add("30% center occlusion -> robust majority-vote recovers",
             p.returncode == 0 and MESSAGE in p.stdout,
@@ -324,24 +324,24 @@ def run_all(r: Runner, rep: Report, wd: Path) -> None:
 
     # ---- G. visible watermark verify -------------------------------------
     print("\n[G] Visible watermark verify")
-    p = r.cli("verify-visible", "-i", stego, "-t", VISIBLE, "-k", KEY, lang="en")
+    p = r.cli("verify-visible", "-i", stego_photo, "-t", VISIBLE, "-k", KEY, lang="en")
     rep.add("verify correct text+key -> present (rc=0)", p.returncode == 0,
             detail=f"rc={p.returncode}")
-    p = r.cli("verify-visible", "-i", stego, "-t", "WRONG TEXT", "-k", KEY, lang="en")
+    p = r.cli("verify-visible", "-i", stego_photo, "-t", "WRONG TEXT", "-k", KEY, lang="en")
     rep.add("verify wrong text -> absent (rc=2)", p.returncode == 2,
             detail=f"rc={p.returncode}")
-    p = r.cli("verify-visible", "-i", stego, "-t", VISIBLE, "-k", "WRONG", lang="en")
+    p = r.cli("verify-visible", "-i", stego_photo, "-t", VISIBLE, "-k", "WRONG", lang="en")
     rep.add("verify wrong key -> absent (rc=2)", p.returncode == 2,
             detail=f"rc={p.returncode}", critical=False)
-    vj = jpeg(stego, wd / "vis_jpeg.jpg", 80)
+    vj = jpeg(stego_photo, wd / "vis_jpeg.jpg", 80)
     p = r.cli("verify-visible", "-i", vj, "-t", VISIBLE, "-k", KEY, lang="en")
     rep.add("verify after JPEG q80 -> still present", p.returncode == 0,
             detail=f"rc={p.returncode}", critical=False)
 
     # ---- H. i18n ----------------------------------------------------------
     print("\n[H] Internationalization")
-    pen = r.cli("extract", "-i", stego, "-k", KEY, lang="en")
-    phu = r.cli("extract", "-i", stego, "-k", KEY, lang="hu")
+    pen = r.cli("extract", "-i", stego_photo, "-k", KEY, lang="en")
+    phu = r.cli("extract", "-i", stego_photo, "-k", KEY, lang="hu")
     rep.add("english vs hungarian output differ (localized)",
             pen.returncode == 0 and phu.returncode == 0 and pen.stdout != phu.stdout)
 
@@ -382,7 +382,7 @@ def main() -> int:
 
     wd = Path(tempfile.mkdtemp(prefix="stego_stress_"))
     print("=" * 68)
-    print("  STEGOSUITE — COMPLETE CLI STRESS TEST")
+    print("  stashpix — COMPLETE CLI STRESS TEST")
     print(f"  workdir : {wd}")
     print(f"  python  : {sys.executable}")
     print("=" * 68)

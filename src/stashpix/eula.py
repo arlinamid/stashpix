@@ -1,11 +1,11 @@
 """End-user license acceptance and first-use gating.
 
 Acceptance is recorded once per license version under the per-user application
-data directory (see :mod:`stegosuite.paths`), so the prompt appears only once.
+data directory (see :mod:`stashpix.paths`), so the prompt appears only once.
 The CLI, GUI and API all funnel through the helpers here.
 
 Overrides:
-    STEGOSUITE_ACCEPT_LICENSE=1   accept non-interactively (CI / automation)
+    STASHPIX_ACCEPT_LICENSE=1   accept non-interactively (CI / automation)
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from .i18n import t
 # Bump when the license terms change materially: forces re-acceptance.
 EULA_VERSION = "1.0"
 ACCEPT_FILENAME = "eula_accepted.json"
-ENV_ACCEPT = "STEGOSUITE_ACCEPT_LICENSE"
+ENV_ACCEPT = "STASHPIX_ACCEPT_LICENSE"
 
 _YES = {"y", "yes", "i", "igen"}
 

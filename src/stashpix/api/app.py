@@ -1,18 +1,4 @@
-"""FastAPI application factory: REST endpoints + interactive web UI.
-
-Endpoints
-    GET  /                      -> interactive web dashboard (live state + tools)
-    GET  /research              -> static research infographic
-    GET  /api/health            -> service health
-    GET  /api/stats             -> live service state (version, registry count...)
-    GET  /api/registry          -> current registry entries
-    GET  /api/i18n              -> web UI translations for a locale
-    POST /api/embed             -> embed a message, returns the stego PNG
-    POST /api/extract           -> extract a message (JSON)
-    POST /api/verify-visible    -> verify a visible watermark (JSON)
-
-Requires the optional ``api`` extra: fastapi, uvicorn, python-multipart.
-"""
+"""FastAPI application factory: REST endpoints + interactive web UI."""
 
 from __future__ import annotations
 
@@ -20,7 +6,7 @@ import io
 from pathlib import Path
 
 from PIL import Image
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query
+from fastapi import Depends, FastAPI, UploadFile, File, Form, HTTPException, Query
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -39,14 +25,16 @@ from ..engine import StegoEngine
 from ..exceptions import StegoError
 from ..i18n import set_locale, t, CATALOGS, available_locales
 from .. import eula
+from .auth import api_key_configured, require_api_key
 from .schemas import HealthResponse, ExtractResponse, VerifyResponse
 
 STATIC_DIR = Path(__file__).parent / "static"
 
 
 def create_app():
-    app = FastAPI(title="Stegosuite API", version=__version__)
+    app = FastAPI(title="Stashpix API", version=__version__)
     engine = StegoEngine()
+    _auth = [Depends(require_api_key)] if api_key_configured() else []
 
     def _loc(lang):
         set_locale(lang)
@@ -62,7 +50,7 @@ def create_app():
         index_file = STATIC_DIR / "index.html"
         if index_file.exists():
             return FileResponse(str(index_file))
-        return {"service": "stegosuite", "version": __version__}
+        return {"service": "stashpix", "version": __version__}
 
     @app.get("/research", include_in_schema=False)
     def research():
@@ -85,13 +73,14 @@ def create_app():
             "summary": eula.summary_text(),
         }
 
-    @app.get("/api/stats")
+    @app.get("/api/stats", dependencies=_auth)
     def stats():
         reg = engine.registry.all()
         return {
             "version": __version__,
             "registry_count": len(reg),
             "locales": available_locales(),
+            "api_key_required": api_key_configured(),
             "layers": [
                 {"key": "lsb", "name": t("layer.lsb.name")},
                 {"key": "robust", "name": t("layer.robust.name")},
@@ -100,7 +89,7 @@ def create_app():
             "geo_available": engine.geometry.available,
         }
 
-    @app.get("/api/registry")
+    @app.get("/api/registry", dependencies=_auth)
     def registry(limit: int = Query(100), lang: str = Query(None)):
         _loc(lang)
         reg = engine.registry.all()
@@ -127,7 +116,7 @@ def create_app():
                for k in fallback if k.startswith("web.")}
         return {"locale": loc, "strings": web}
 
-    @app.post("/api/embed")
+    @app.post("/api/embed", dependencies=_auth)
     async def embed(
         file: UploadFile = File(...),
         message: str = Form(...),
@@ -159,11 +148,11 @@ def create_app():
         buf.seek(0)
         headers = {
             "X-Robust-Id": info.get("robust_id") or "",
-            "Content-Disposition": "attachment; filename=stego.png",
+            "Content-Disposition": "attachment; filename=stashpix.png",
         }
         return StreamingResponse(buf, media_type="image/png", headers=headers)
 
-    @app.post("/api/extract", response_model=ExtractResponse)
+    @app.post("/api/extract", dependencies=_auth, response_model=ExtractResponse)
     async def extract(
         file: UploadFile = File(...),
         key: str = Form(""),
@@ -184,7 +173,7 @@ def create_app():
         return ExtractResponse(ok=True, message=message, layer=info.get("layer"),
                                info=_safe(info), detail=t("api.extract.ok"))
 
-    @app.post("/api/verify-visible", response_model=VerifyResponse)
+    @app.post("/api/verify-visible", dependencies=_auth, response_model=VerifyResponse)
     async def verify_visible(
         file: UploadFile = File(...),
         text: str = Form(...),
@@ -206,7 +195,6 @@ def create_app():
 
 
 def _safe(info: dict) -> dict:
-    """Drop non-JSON-serializable values (e.g. nested tuples are fine, but keep it lean)."""
     out = {}
     for k, v in info.items():
         if isinstance(v, (str, int, float, bool)) or v is None:

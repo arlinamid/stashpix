@@ -3,9 +3,9 @@
 import pytest
 from PIL import Image
 
-from stegosuite.layers.lsb import LsbLayer
-from stegosuite.config import EmbedConfig, ExtractConfig
-from stegosuite.exceptions import DecodeError
+from stashpix.layers.lsb import LsbLayer
+from stashpix.config import EmbedConfig, ExtractConfig
+from stashpix.exceptions import DecodeError
 
 
 def test_lsb_roundtrip(noise_path):

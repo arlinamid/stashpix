@@ -1,6 +1,6 @@
 """Unit tests for coding-theory primitives."""
 
-from stegosuite.core.coding import (
+from stashpix.core.coding import (
     bytes_to_bits,
     bits_to_bytes,
     int_to_bits,

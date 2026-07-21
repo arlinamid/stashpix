@@ -1,6 +1,6 @@
 """Central logging configuration.
 
-Library code uses ``logging.getLogger("stegosuite...")`` and never prints
+Library code uses ``logging.getLogger("stashpix...")`` and never prints
 directly; presentation layers decide how to surface messages. Call
 :func:`configure` once (CLI/GUI/API entry points) to attach a handler.
 """
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 
-_LOGGER_NAME = "stegosuite"
+_LOGGER_NAME = "stashpix"
 
 
 def get_logger(name: str | None = None) -> logging.Logger:

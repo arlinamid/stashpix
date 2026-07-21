@@ -1,4 +1,4 @@
-"""Exception hierarchy for stegosuite.
+"""Exception hierarchy for stashpix.
 
 Every exception stores an i18n message *key* plus format parameters, so its
 ``str()`` renders in whatever locale is active when it is displayed — not when
@@ -11,7 +11,7 @@ from .i18n import t
 
 
 class StegoError(Exception):
-    """Base class for all stegosuite errors."""
+    """Base class for all stashpix errors."""
 
     default_key = "error.generic"
 

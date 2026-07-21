@@ -1,4 +1,4 @@
-"""Unified command-line interface: ``stego <command> ...``.
+"""Unified command-line interface: ``stashpix <command> ...``.
 
 Commands: embed, extract, extract-geo, verify-visible, gui, serve, license.
 A global ``--lang`` selects the interface language (en/hu).
@@ -36,7 +36,7 @@ def _ensure_utf8_stdout() -> None:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="stego", description=t("cli.description"))
+    p = argparse.ArgumentParser(prog="stashpix", description=t("cli.description"))
     p.add_argument("--lang", choices=available_locales(), default=None,
                    help=t("cli.help.lang"))
     p.add_argument("--accept-license", action="store_true",

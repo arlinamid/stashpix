@@ -1,6 +1,6 @@
 """Registry store tests."""
 
-from stegosuite.registry import Registry
+from stashpix.registry import Registry
 
 
 def test_add_get_remove(tmp_path):

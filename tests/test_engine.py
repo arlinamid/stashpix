@@ -4,7 +4,7 @@ import io
 
 from PIL import Image
 
-from stegosuite.config import EmbedConfig, ExtractConfig, VerifyConfig
+from stashpix.config import EmbedConfig, ExtractConfig, VerifyConfig
 
 
 MSG = "Négyréteges titkos üzenet — áéíőű 4711"

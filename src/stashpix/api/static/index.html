@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/png" href="/static/favicon.png">
-<title>Stegosuite</title>
+<title>stashpix</title>
 <style>
   :root{
     --bg:#0a0e15; --bg2:#0d131c; --panel:#111926; --panel2:#0e151f;
@@ -76,7 +76,7 @@
 <div class="wrap">
   <header>
     <div class="brand">
-      <h1 data-i18n="web.title">Stegosuite</h1>
+      <h1 data-i18n="web.title">stashpix</h1>
       <div class="sub" data-i18n="web.subtitle"></div>
     </div>
     <div class="spacer"></div>
@@ -160,7 +160,7 @@
 
 <script>
 let T = {};
-let LANG = localStorage.getItem("stego_lang") || "hu";
+let LANG = localStorage.getItem("stashpix_lang") || "hu";
 let autoTimer = null;
 
 function fmt(key, params){
@@ -232,7 +232,7 @@ document.querySelectorAll(".tab").forEach(t=>{
 // language
 document.getElementById("langSel").value = LANG;
 document.getElementById("langSel").onchange = async (e)=>{
-  LANG = e.target.value; localStorage.setItem("stego_lang", LANG);
+  LANG = e.target.value; localStorage.setItem("stashpix_lang", LANG);
   await loadI18n(); await loadStats(); loadRegistry();
 };
 
@@ -257,7 +257,7 @@ document.getElementById("e_btn").onclick = async ()=>{
     const id = r.headers.get("X-Robust-Id") || "";
     const blob = await r.blob(); const url = URL.createObjectURL(blob);
     out.className = "out show ok";
-    out.innerHTML = esc(fmt("web.msg.embed_ok", {id:id})) + '<br><a href="'+url+'" download="stego.png">'+(T["web.msg.download"]||"download")+'</a>';
+    out.innerHTML = esc(fmt("web.msg.embed_ok", {id:id})) + '<br><a href="'+url+'" download="stashpix.png">'+(T["web.msg.download"]||"download")+'</a>';
     loadStats(); loadRegistry();
   }catch(e){ showOut(out, (T["web.msg.error"]||"Error")+": "+e, "bad"); }
   busy(btn, false);

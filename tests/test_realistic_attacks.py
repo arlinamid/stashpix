@@ -7,7 +7,7 @@ import io
 import pytest
 from PIL import Image, ImageEnhance, ImageFilter
 
-from stegosuite.config import EmbedConfig, ExtractConfig
+from stashpix.config import EmbedConfig, ExtractConfig
 
 from tests.geo_helpers import place_on_green, require_cv2
 

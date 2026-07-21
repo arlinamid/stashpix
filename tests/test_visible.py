@@ -2,7 +2,7 @@
 
 from PIL import Image
 
-from stegosuite.layers.visible import VisibleWatermarkLayer
+from stashpix.layers.visible import VisibleWatermarkLayer
 
 
 def test_visible_present_after_apply(photo_path):

@@ -1,7 +1,8 @@
-"""LSB layer — Reed-Solomon + key-based spreading + XOR-whitening + redundancy.
+"""LSB layer — Reed-Solomon + key-based spreading + AEAD + redundancy.
 
 Carries the FULL message in the spatial least-significant bits. Survives
-crop/repaint (thanks to spreading + RS + copies) but not JPEG/resize.
+repaint thanks to spreading + RS + copies but not JPEG/resize/crop (the
+permutation is image-size dependent).
 """
 
 from __future__ import annotations
@@ -23,22 +24,24 @@ from ..core.coding import (
     bits_to_bytes,
     hamming_encode_bits,
     hamming_decode_bits,
-    keystream_bits,
 )
-from ..core.keys import derive_seed
+from ..core.crypto import aead_decrypt, aead_encrypt, pack_encrypted, unpack_encrypted
+from ..core.keys import derive_key_bytes, derive_seed
 from ..exceptions import CapacityError, DecodeError, SelfVerifyError, StegoError
 
-# --- Self-describing header layout ---------------------------------------
+LSB_FORMAT_VERSION = 2
 HEADER_REPEATS_BASE = 25
 LEN_FIELD_BITS = 32
 NSYM_FIELD_BITS = 8
 COPIES_FIELD_BITS = 8
-HEADER_RAW_BITS = LEN_FIELD_BITS + NSYM_FIELD_BITS + COPIES_FIELD_BITS  # 48
-HEADER_ENC_BITS = (HEADER_RAW_BITS // 4) * 7  # 84
+VERSION_FIELD_BITS = 8
+HEADER_RAW_BITS = LEN_FIELD_BITS + NSYM_FIELD_BITS + COPIES_FIELD_BITS + VERSION_FIELD_BITS
+HEADER_ENC_BITS = (HEADER_RAW_BITS // 4) * 7
+if HEADER_RAW_BITS % 4:
+    HEADER_ENC_BITS += 7
 
 
 def header_repeats(capacity_bits: int) -> int:
-    """Capacity-proportional header replication (odd, for clean majority vote)."""
     extra = min(capacity_bits // 15000, 1024)
     reps = HEADER_REPEATS_BASE + extra
     if reps % 2 == 0:
@@ -54,13 +57,16 @@ def _build_permutation(capacity_bits: int, seed) -> List[int]:
 
 
 def _build_header_bits(rs_len_bytes: int, nsym: int, copies: int, reps: int) -> List[int]:
-    raw = (int_to_bits(rs_len_bytes, LEN_FIELD_BITS)
-           + int_to_bits(nsym, NSYM_FIELD_BITS)
-           + int_to_bits(copies, COPIES_FIELD_BITS))
+    raw = (
+        int_to_bits(rs_len_bytes, LEN_FIELD_BITS)
+        + int_to_bits(nsym, NSYM_FIELD_BITS)
+        + int_to_bits(copies, COPIES_FIELD_BITS)
+        + int_to_bits(LSB_FORMAT_VERSION, VERSION_FIELD_BITS)
+    )
     return hamming_encode_bits(raw) * reps
 
 
-def _read_header(header_bits: List[int], reps: int) -> Tuple[int, int, int, int]:
+def _read_header(header_bits: List[int], reps: int) -> Tuple[int, int, int, int, int]:
     chunks = [header_bits[i * HEADER_ENC_BITS:(i + 1) * HEADER_ENC_BITS]
               for i in range(reps)]
     majority = []
@@ -80,15 +86,18 @@ def _read_header(header_bits: List[int], reps: int) -> Tuple[int, int, int, int]
     if not candidates:
         raise DecodeError(key="error.decode_header")
 
-    (rs_len, nsym, copies), votes = Counter(candidates).most_common(1)[0]
-    return rs_len, nsym, copies, votes
+    parsed, votes = Counter(candidates).most_common(1)[0]
+    rs_len, nsym, copies, version = parsed
+    return rs_len, nsym, copies, version, votes
 
 
-def _parse_header_raw(raw: List[int]) -> Tuple[int, int, int]:
+def _parse_header_raw(raw: List[int]) -> Tuple[int, int, int, int]:
     rs_len = bits_to_int(raw[:LEN_FIELD_BITS])
     nsym = bits_to_int(raw[LEN_FIELD_BITS:LEN_FIELD_BITS + NSYM_FIELD_BITS])
-    copies = bits_to_int(raw[LEN_FIELD_BITS + NSYM_FIELD_BITS:HEADER_RAW_BITS])
-    return rs_len, nsym, copies
+    copies = bits_to_int(raw[LEN_FIELD_BITS + NSYM_FIELD_BITS:
+                              LEN_FIELD_BITS + NSYM_FIELD_BITS + COPIES_FIELD_BITS])
+    version = bits_to_int(raw[LEN_FIELD_BITS + NSYM_FIELD_BITS + COPIES_FIELD_BITS:HEADER_RAW_BITS])
+    return rs_len, nsym, copies, version
 
 
 class LsbLayer(Layer):
@@ -110,7 +119,12 @@ class LsbLayer(Layer):
 
         rs_encoded = RSCodec(nsym).encode(message.encode("utf-8"))
         rs_len = len(rs_encoded)
-        L = rs_len * 8
+        sym_key = derive_key_bytes(config.key, context="stashpix-lsb-v2")
+        nonce, ciphertext = aead_encrypt(
+            sym_key, rs_encoded, associated_data=f"v{LSB_FORMAT_VERSION}:{rs_len}:{nsym}:{copies}".encode())
+        payload_bytes = pack_encrypted(nonce, ciphertext)
+        payload_bits = bytes_to_bits(payload_bytes)
+        L = len(payload_bits)
 
         reps = header_repeats(capacity_bits)
         header_bits = _build_header_bits(rs_len, nsym, copies, reps)
@@ -122,20 +136,18 @@ class LsbLayer(Layer):
             raise CapacityError(needed=total_needed, available=capacity_bits,
                                 max_copies=max_copies)
 
-        payload_one = bytes_to_bits(rs_encoded)
-        all_bits = header_bits + payload_one * copies
+        all_bits = header_bits + payload_bits * copies
 
         seed = derive_seed(config.key)
         perm = np.asarray(_build_permutation(capacity_bits, seed), dtype=np.int64)
-        keystream = np.asarray(keystream_bits(seed, len(all_bits)), dtype=np.uint8)
-        bits = np.asarray(all_bits, dtype=np.uint8) ^ keystream
+        bits = np.asarray(all_bits, dtype=np.uint8)
 
         positions = perm[:len(all_bits)]
         flat = arr.reshape(-1)
         flat[positions] = (flat[positions] & np.uint8(0xFE)) | bits
 
         out_img = Image.fromarray(arr, "RGB")
-        info = {"rs_len": rs_len, "nsym": nsym, "copies": copies,
+        info = {"rs_len": rs_len, "nsym": nsym, "copies": copies, "format": LSB_FORMAT_VERSION,
                 "used_bits": len(all_bits), "capacity_bits": capacity_bits}
 
         if config.lsb_self_verify:
@@ -163,47 +175,65 @@ class LsbLayer(Layer):
         if probe_len > capacity_bits:
             raise DecodeError(key="error.decode_header")
 
-        ks = np.asarray(keystream_bits(seed, probe_len), dtype=np.uint8)
-        header_bits = ((flat[perm[:probe_len]] & 1) ^ ks).tolist()
-        rs_len, nsym, copies, header_votes = _read_header(header_bits, reps)
-
-        L = rs_len * 8
-        if rs_len <= 0 or nsym <= 0 or copies <= 0 or probe_len + copies * L > capacity_bits:
+        header_bits = (flat[perm[:probe_len]] & 1).tolist()
+        rs_len, nsym, copies, version, header_votes = _read_header(header_bits, reps)
+        if version != LSB_FORMAT_VERSION:
             raise DecodeError(key="error.decode_params")
 
-        full_len = probe_len + copies * L
-        ks_full = np.asarray(keystream_bits(seed, full_len), dtype=np.uint8)
+        sym_key = derive_key_bytes(config.key, context="stashpix-lsb-v2")
+        aad = f"v{version}:{rs_len}:{nsym}:{copies}".encode()
+
+        # Probe payload length from first copy (encrypted blob size varies with RS)
+        # We need rs_len to know plaintext size but ciphertext length = rs_len + overhead
+        # Actually we stored rs_len as RS-encoded length; encrypted size unknown without reading.
+        # Embed side: payload is fixed per embed — read until we have enough bits for one copy.
+        # Strategy: read max possible from first copy slot using remaining capacity.
+        remaining = capacity_bits - probe_len
+        if copies <= 0 or remaining <= 0:
+            raise DecodeError(key="error.decode_params")
+
+        # Binary search copy length is hard; store encrypted byte length in rs_len field? 
+        # rs_len IS the RS byte length; encrypted = nonce(12)+ct(rs_len+16 tag) approx
+        from ..core.crypto import _NONCE_LEN, _TAG_OVERHEAD
+        enc_byte_len = _NONCE_LEN + rs_len + _TAG_OVERHEAD
+        L = enc_byte_len * 8
+
+        if probe_len + copies * L > capacity_bits:
+            raise DecodeError(key="error.decode_params")
 
         copy_bit_arrays = []
         for c in range(copies):
             start = probe_len + c * L
             positions = perm[start:start + L]
-            arr_bits = (flat[positions] & 1) ^ ks_full[start:start + L]
-            copy_bit_arrays.append(arr_bits)
+            copy_bit_arrays.append((flat[positions] & 1).astype(np.uint8))
 
         stack = np.vstack(copy_bit_arrays)
         ones = stack.sum(axis=0)
         majority_bits = (ones * 2 > copies).astype(np.uint8)
         disagreements = int(np.count_nonzero((ones != 0) & (ones != copies)))
 
-        rsc = RSCodec(nsym)
-
-        def try_rs(bits) -> Optional[Tuple[bytes, int]]:
+        def try_decrypt(bits) -> Optional[Tuple[bytes, int]]:
             try:
-                decoded, _full, errata = rsc.decode(bits_to_bytes(bits.tolist()))
+                blob = bits_to_bytes(bits.tolist())
+                nonce, ciphertext = unpack_encrypted(blob)
+                rs_blob = aead_decrypt(sym_key, nonce, ciphertext, associated_data=aad)
+                if len(rs_blob) != rs_len:
+                    return None
+                rsc = RSCodec(nsym)
+                decoded, _full, errata = rsc.decode(rs_blob)
                 return bytes(decoded), len(errata)
-            except ReedSolomonError:
+            except Exception:
                 return None
 
         used_source = "voted"
         rs_errors = 0
         message_bytes = None
-        res = try_rs(majority_bits)
+        res = try_decrypt(majority_bits)
         if res is not None:
             message_bytes, rs_errors = res
         else:
             for bits in copy_bit_arrays:
-                res = try_rs(bits)
+                res = try_decrypt(bits)
                 if res is not None:
                     message_bytes, rs_errors = res
                     used_source = "single copy"
@@ -221,6 +251,7 @@ class LsbLayer(Layer):
             "header_votes": header_votes,
             "rs_nsym": nsym,
             "copies_total": copies,
+            "format": version,
             "bit_disagreements": disagreements,
             "rs_errors_corrected": rs_errors,
             "recovery_source": used_source,
@@ -228,4 +259,4 @@ class LsbLayer(Layer):
         return LayerResult(message=message, layer_key=self.name_key, info=info)
 
 
-__all__ = ["LsbLayer", "header_repeats", "HEADER_ENC_BITS"]
+__all__ = ["LsbLayer", "header_repeats", "HEADER_ENC_BITS", "LSB_FORMAT_VERSION"]

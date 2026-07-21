@@ -1,9 +1,9 @@
-"""stegosuite — multi-layer steganography suite.
+"""stashpix — multi-layer steganography suite.
 
 Public API::
 
-    from stegosuite import StegoEngine, EmbedConfig, ExtractConfig, VerifyConfig
-    from stegosuite import set_locale
+    from stashpix import StegoEngine, EmbedConfig, ExtractConfig, VerifyConfig
+    from stashpix import set_locale
 
     engine = StegoEngine()
     result = engine.embed_file("in.png", "secret", "out.png", EmbedConfig(key="pw"))
@@ -30,7 +30,7 @@ from .i18n import set_locale, get_locale, available_locales
 from .paths import app_home, default_registry_path
 from .engine import StegoEngine
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 __all__ = [
     "__version__",

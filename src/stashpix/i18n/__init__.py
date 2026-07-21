@@ -29,7 +29,7 @@ def available_locales() -> list[str]:
 
 
 def _initial_locale() -> str:
-    env = os.environ.get("STEGOSUITE_LANG", "").strip().lower()
+    env = os.environ.get("STASHPIX_LANG", "").strip().lower()
     if env in CATALOGS:
         return env
     return DEFAULT_LOCALE

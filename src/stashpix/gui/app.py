@@ -1,4 +1,4 @@
-"""Tkinter desktop GUI wired to :class:`stegosuite.StegoEngine`, with live i18n.
+"""Tkinter desktop GUI wired to :class:`stashpix.stashpixEngine`, with live i18n.
 
 All labels are registered with :meth:`StegoGUI._tr`; switching the language
 combobox re-applies every registered translation without losing field values.
@@ -344,7 +344,7 @@ class StegoGUI(tk.Tk):
         tb = self.decode_tab
         tb.columnconfigure(1, weight=1)
 
-        self._mk_label(tb, "gui.stego_image", row=0, column=0, sticky="w", pady=4)
+        self._mk_label(tb, "gui.stashpix_image", row=0, column=0, sticky="w", pady=4)
         self.dec_input = tk.StringVar()
         ttk.Entry(tb, textvariable=self.dec_input).grid(row=0, column=1, sticky="ew", padx=6)
         self._mk_button(tb, "gui.browse", self._pick_decode_input, row=0, column=2)
@@ -398,7 +398,7 @@ class StegoGUI(tk.Tk):
         self.enc_input.set(path)
         if not self.enc_output.get():
             base, _ = os.path.splitext(path)
-            self.enc_output.set(base + "_stego.png")
+            self.enc_output.set(base + "_stashpix.png")
         self._show_preview(path, self.enc_preview, "enc")
         self._recalc_max_copies()
 
