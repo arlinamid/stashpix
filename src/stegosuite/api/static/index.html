@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/png" href="/static/favicon.png">
+<title>Stegosuite</title>
+<style>
+  :root{
+    --bg:#0a0e15; --bg2:#0d131c; --panel:#111926; --panel2:#0e151f;
+    --line:#1e2a3a; --line2:#27364a; --ink:#dce6f2; --ink2:#9fb0c4; --mut:#647689;
+    --accent:#33d1c6; --accent2:#7aa2ff;
+    --pass:#3fb96b; --pass-bg:rgba(63,185,107,.14);
+    --warn:#e0a63a; --fail:#e75f56; --fail-bg:rgba(231,95,86,.14);
+    --mono:ui-monospace,"Cascadia Code","JetBrains Mono",Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:
+      radial-gradient(1200px 600px at 82% -8%, rgba(51,209,198,.10), transparent 60%),
+      radial-gradient(900px 500px at 8% 108%, rgba(122,162,255,.10), transparent 60%),
+      var(--bg);color:var(--ink);font-family:var(--sans);min-height:100vh}
+  .wrap{max-width:1080px;margin:0 auto;padding:22px 20px 60px}
+  header{display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+    border:1px solid var(--line);border-radius:14px;padding:16px 20px;
+    background:linear-gradient(180deg,var(--panel),var(--panel2));position:relative;overflow:hidden}
+  header::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+    background:linear-gradient(180deg,var(--accent),var(--accent2))}
+  .brand h1{margin:0;font-family:var(--mono);font-size:22px;font-weight:600}
+  .brand .sub{color:var(--ink2);font-size:13px;margin-top:3px;max-width:520px}
+  .spacer{flex:1}
+  .chips{display:flex;gap:10px;flex-wrap:wrap}
+  .chip{background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+    padding:7px 12px;display:flex;flex-direction:column;gap:2px;min-width:96px}
+  .chip .l{font-size:9.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--mut);font-family:var(--mono)}
+  .chip .v{font-size:15px;font-family:var(--mono);font-weight:600}
+  .dotstat{display:inline-flex;align-items:center;gap:6px}
+  .dotstat i{width:8px;height:8px;border-radius:50%;background:var(--mut)}
+  .dotstat.on i{background:var(--pass)} .dotstat.off i{background:var(--fail)}
+  .langsel{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink2)}
+  select,input,textarea{font-family:var(--sans);font-size:14px;color:var(--ink);
+    background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:8px 10px}
+  select{cursor:pointer}
+  textarea{width:100%;min-height:90px;resize:vertical}
+  .tabs{display:flex;gap:8px;margin:18px 0 14px;flex-wrap:wrap}
+  .tab{font-family:var(--mono);font-size:13px;color:var(--ink2);background:var(--panel2);
+    border:1px solid var(--line);border-radius:9px;padding:8px 14px;cursor:pointer}
+  .tab.active{color:var(--bg);background:var(--accent);border-color:var(--accent);font-weight:700}
+  .panel{display:none;border:1px solid var(--line);border-radius:14px;
+    background:linear-gradient(180deg,var(--panel),var(--panel2));padding:18px 20px}
+  .panel.active{display:block}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+  .field label{font-size:12px;color:var(--ink2);font-family:var(--mono)}
+  .full{grid-column:1/-1}
+  .btn{font-family:var(--mono);font-weight:700;font-size:14px;color:var(--bg);
+    background:linear-gradient(90deg,var(--accent2),var(--accent));border:none;
+    border-radius:9px;padding:11px 18px;cursor:pointer}
+  .btn.sec{background:var(--panel2);color:var(--ink);border:1px solid var(--line2)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .out{margin-top:14px;font-family:var(--mono);font-size:13px;padding:12px 14px;
+    border-radius:10px;border:1px solid var(--line);background:var(--panel2);white-space:pre-wrap;word-break:break-word;display:none}
+  .out.show{display:block}
+  .out.ok{border-color:rgba(63,185,107,.4)} .out.bad{border-color:rgba(231,95,86,.4);color:#ffb3ad}
+  .out a{color:var(--accent)}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12.5px}
+  th,td{text-align:left;padding:8px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--mut);font-size:10px;letter-spacing:.8px;text-transform:uppercase}
+  td.id{color:var(--accent2)}
+  .rowtop{display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+  .muted{color:var(--mut);font-size:12px}
+  a.link{color:var(--accent);font-family:var(--mono);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1 data-i18n="web.title">Stegosuite</h1>
+      <div class="sub" data-i18n="web.subtitle"></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="chips">
+      <div class="chip"><span class="l" data-i18n="web.status.online">status</span>
+        <span class="v"><span id="statusDot" class="dotstat"><i></i><span id="statusText">…</span></span></span></div>
+      <div class="chip"><span class="l" data-i18n="web.label.version">version</span><span class="v" id="statVersion">…</span></div>
+      <div class="chip"><span class="l" data-i18n="web.label.registry">registry</span><span class="v" id="statRegistry">…</span></div>
+      <div class="chip"><span class="l" data-i18n="web.label.geo">geo</span><span class="v" id="statGeo">…</span></div>
+    </div>
+    <div class="langsel">
+      <span data-i18n="web.language">Language</span>
+      <select id="langSel"><option value="hu">HU</option><option value="en">EN</option></select>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <div class="tab active" data-tab="embed" data-i18n="web.tab.embed"></div>
+    <div class="tab" data-tab="extract" data-i18n="web.tab.extract"></div>
+    <div class="tab" data-tab="verify" data-i18n="web.tab.verify"></div>
+    <div class="tab" data-tab="registry" data-i18n="web.tab.registry"></div>
+    <div class="tab" data-tab="about" data-i18n="web.tab.about"></div>
+  </nav>
+
+  <!-- EMBED -->
+  <section class="panel active" id="p-embed">
+    <div class="grid">
+      <div class="field full"><label data-i18n="web.field.cover"></label><input type="file" id="e_file" accept="image/*"></div>
+      <div class="field full"><label data-i18n="web.field.message"></label><textarea id="e_msg"></textarea></div>
+      <div class="field"><label data-i18n="web.field.key"></label><input type="password" id="e_key"></div>
+      <div class="field"><label data-i18n="web.field.visible"></label><input type="text" id="e_vis"></div>
+      <div class="field"><label data-i18n="web.field.copies"></label><input type="number" id="e_copies" value="3" min="1" max="255"></div>
+      <div class="field"><label data-i18n="web.field.nsym"></label><input type="number" id="e_nsym" value="64" min="1" max="254"></div>
+      <div class="field"><label data-i18n="web.field.strength"></label><input type="number" id="e_strength" value="3.0" step="0.1" min="0.5" max="5"></div>
+    </div>
+    <button class="btn" id="e_btn" data-i18n="web.btn.embed"></button>
+    <div class="out" id="e_out"></div>
+  </section>
+
+  <!-- EXTRACT -->
+  <section class="panel" id="p-extract">
+    <div class="grid">
+      <div class="field full"><label data-i18n="web.field.image"></label><input type="file" id="x_file" accept="image/*"></div>
+      <div class="field"><label data-i18n="web.field.key"></label><input type="password" id="x_key"></div>
+      <div class="field full"><label data-i18n="web.field.reference"></label>
+        <input type="file" id="x_ref" accept="image/*">
+        <span class="muted" data-i18n="web.field.reference_hint"></span></div>
+    </div>
+    <button class="btn" id="x_btn" data-i18n="web.btn.extract"></button>
+    <div class="out" id="x_out"></div>
+  </section>
+
+  <!-- VERIFY -->
+  <section class="panel" id="p-verify">
+    <div class="grid">
+      <div class="field full"><label data-i18n="web.field.image"></label><input type="file" id="v_file" accept="image/*"></div>
+      <div class="field"><label data-i18n="web.field.expected"></label><input type="text" id="v_text"></div>
+      <div class="field"><label data-i18n="web.field.key"></label><input type="password" id="v_key"></div>
+    </div>
+    <button class="btn" id="v_btn" data-i18n="web.btn.verify"></button>
+    <div class="out" id="v_out"></div>
+  </section>
+
+  <!-- REGISTRY -->
+  <section class="panel" id="p-registry">
+    <div class="rowtop">
+      <strong data-i18n="web.registry.title"></strong>
+      <span class="spacer"></span>
+      <label class="muted"><input type="checkbox" id="r_auto"> <span data-i18n="web.registry.autorefresh"></span></label>
+      <button class="btn sec" id="r_btn" data-i18n="web.btn.refresh"></button>
+    </div>
+    <div id="r_body"></div>
+  </section>
+
+  <!-- ABOUT -->
+  <section class="panel" id="p-about">
+    <p class="sub" data-i18n="web.about.body" style="max-width:760px;line-height:1.6"></p>
+    <p><a class="link" href="/research" target="_blank" data-i18n="web.about.research"></a></p>
+  </section>
+</div>
+
+<script>
+let T = {};
+let LANG = localStorage.getItem("stego_lang") || "hu";
+let autoTimer = null;
+
+function fmt(key, params){
+  let s = T[key] || key;
+  if(params) for(const k in params) s = s.replace("{"+k+"}", params[k]);
+  return s;
+}
+function applyI18n(){
+  document.querySelectorAll("[data-i18n]").forEach(el=>{
+    const k = el.getAttribute("data-i18n"); if(T[k]!==undefined) el.textContent = T[k];
+  });
+  document.documentElement.lang = LANG;
+}
+async function loadI18n(){
+  const r = await fetch("/api/i18n?lang="+LANG);
+  const d = await r.json(); T = d.strings || {}; applyI18n();
+}
+async function loadStats(){
+  try{
+    const r = await fetch("/api/stats"); const d = await r.json();
+    document.getElementById("statVersion").textContent = d.version;
+    document.getElementById("statRegistry").textContent = d.registry_count;
+    document.getElementById("statGeo").textContent = d.geo_available ? "✓" : "—";
+    setOnline(true);
+  }catch(e){ setOnline(false); }
+}
+function setOnline(on){
+  const dot = document.getElementById("statusDot");
+  dot.className = "dotstat " + (on?"on":"off");
+  document.getElementById("statusText").textContent = on ? (T["web.status.online"]||"online") : (T["web.status.offline"]||"offline");
+}
+async function loadRegistry(){
+  const body = document.getElementById("r_body");
+  try{
+    const r = await fetch("/api/registry?lang="+LANG); const d = await r.json();
+    if(!d.items.length){ body.innerHTML = '<p class="muted">'+(T["web.registry.empty"]||"")+'</p>'; return; }
+    let h = '<table><thead><tr>'
+      +'<th>'+(T["web.registry.id"]||"ID")+'</th>'
+      +'<th>'+(T["web.registry.message"]||"Message")+'</th>'
+      +'<th>'+(T["web.registry.created"]||"Created")+'</th>'
+      +'<th>'+(T["web.registry.source"]||"Source")+'</th>'
+      +'<th>'+(T["web.registry.output"]||"Output")+'</th>'
+      +'</tr></thead><tbody>';
+    for(const it of d.items){
+      h += '<tr><td class="id">'+it.id.slice(0,12)+'…</td><td>'+esc(it.message_preview)+'</td><td>'
+        +esc(it.created)+'</td><td>'+esc(it.source_image)+'</td><td>'+esc(it.output_image)+'</td></tr>';
+    }
+    body.innerHTML = h + '</tbody></table>';
+  }catch(e){ body.innerHTML = '<p class="muted">'+(T["web.msg.error"]||"Error")+': '+e+'</p>'; }
+}
+function esc(s){ return (s||"").replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+
+function showOut(el, text, cls){
+  el.className = "out show " + (cls||""); el.textContent = text;
+}
+function busy(btn, on){ btn.disabled = on; }
+
+// tabs
+document.querySelectorAll(".tab").forEach(t=>{
+  t.onclick = ()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");
+    document.getElementById("p-"+t.dataset.tab).classList.add("active");
+    if(t.dataset.tab==="registry") loadRegistry();
+  };
+});
+
+// language
+document.getElementById("langSel").value = LANG;
+document.getElementById("langSel").onchange = async (e)=>{
+  LANG = e.target.value; localStorage.setItem("stego_lang", LANG);
+  await loadI18n(); await loadStats(); loadRegistry();
+};
+
+// embed
+document.getElementById("e_btn").onclick = async ()=>{
+  const f = document.getElementById("e_file").files[0];
+  const out = document.getElementById("e_out"), btn = document.getElementById("e_btn");
+  if(!f) return;
+  const fd = new FormData();
+  fd.append("file", f);
+  fd.append("message", document.getElementById("e_msg").value);
+  fd.append("key", document.getElementById("e_key").value);
+  fd.append("copies", document.getElementById("e_copies").value);
+  fd.append("nsym", document.getElementById("e_nsym").value);
+  fd.append("strength", document.getElementById("e_strength").value);
+  fd.append("visible_text", document.getElementById("e_vis").value);
+  busy(btn, true); showOut(out, T["web.msg.processing"]||"…");
+  try{
+    const r = await fetch("/api/embed?lang="+LANG, {method:"POST", body:fd});
+    if(!r.ok){ const d = await r.json().catch(()=>({detail:r.statusText}));
+      showOut(out, (T["web.msg.error"]||"Error")+": "+(d.detail||r.status), "bad"); busy(btn,false); return; }
+    const id = r.headers.get("X-Robust-Id") || "";
+    const blob = await r.blob(); const url = URL.createObjectURL(blob);
+    out.className = "out show ok";
+    out.innerHTML = esc(fmt("web.msg.embed_ok", {id:id})) + '<br><a href="'+url+'" download="stego.png">'+(T["web.msg.download"]||"download")+'</a>';
+    loadStats(); loadRegistry();
+  }catch(e){ showOut(out, (T["web.msg.error"]||"Error")+": "+e, "bad"); }
+  busy(btn, false);
+};
+
+// extract
+document.getElementById("x_btn").onclick = async ()=>{
+  const f = document.getElementById("x_file").files[0];
+  const out = document.getElementById("x_out"), btn = document.getElementById("x_btn");
+  if(!f) return;
+  const fd = new FormData();
+  fd.append("file", f); fd.append("key", document.getElementById("x_key").value);
+  const ref = document.getElementById("x_ref").files[0];
+  if(ref) fd.append("reference", ref);
+  busy(btn, true); showOut(out, T["web.msg.processing"]||"…");
+  try{
+    const r = await fetch("/api/extract?lang="+LANG, {method:"POST", body:fd});
+    const d = await r.json();
+    if(!d.ok){ showOut(out, T["web.msg.no_message"]||"", "bad"); }
+    else showOut(out, d.message + "\n\n" + fmt("web.msg.layer",{layer:d.layer||"?"}), "ok");
+  }catch(e){ showOut(out, (T["web.msg.error"]||"Error")+": "+e, "bad"); }
+  busy(btn, false);
+};
+
+// verify
+document.getElementById("v_btn").onclick = async ()=>{
+  const f = document.getElementById("v_file").files[0];
+  const out = document.getElementById("v_out"), btn = document.getElementById("v_btn");
+  if(!f) return;
+  const fd = new FormData();
+  fd.append("file", f); fd.append("text", document.getElementById("v_text").value);
+  fd.append("key", document.getElementById("v_key").value);
+  busy(btn, true); showOut(out, T["web.msg.processing"]||"…");
+  try{
+    const r = await fetch("/api/verify-visible?lang="+LANG, {method:"POST", body:fd});
+    const d = await r.json();
+    const key = d.present ? "web.msg.present" : "web.msg.absent";
+    showOut(out, fmt(key, {score:d.score}), d.present ? "ok" : "bad");
+  }catch(e){ showOut(out, (T["web.msg.error"]||"Error")+": "+e, "bad"); }
+  busy(btn, false);
+};
+
+// registry refresh + auto
+document.getElementById("r_btn").onclick = loadRegistry;
+document.getElementById("r_auto").onchange = (e)=>{
+  if(e.target.checked){ autoTimer = setInterval(()=>{ loadStats(); loadRegistry(); }, 6000); }
+  else if(autoTimer){ clearInterval(autoTimer); autoTimer = null; }
+};
+
+// init
+(async ()=>{ await loadI18n(); await loadStats(); loadRegistry();
+  setInterval(loadStats, 15000); })();
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+*.spec.bak
+
+# Packaging output
+packaging/out/
+
+# Local data / runtime
+.stego/
+registry.json
+stego_refs/
+
+# Stray test/debug artifacts at repo root
+/test_image.png
+/test_image_stego.png
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

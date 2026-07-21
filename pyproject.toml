@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stegosuite"
+version = "1.1.0"
+description = "Multi-layer steganography suite (LSB + robust DCT watermark + visible watermark) with unified CLI, desktop GUI and REST API."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [{ name = "Rózsavölgyi János" }]
+keywords = ["steganography", "watermark", "dct", "reed-solomon", "lsb"]
+classifiers = [
+    "License :: Other/Proprietary License",
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Multimedia :: Graphics",
+]
+dependencies = [
+    "numpy>=1.21",
+    "Pillow>=9.0",
+    "reedsolo>=1.7",
+]
+
+[project.optional-dependencies]
+# Geometric synchronization (SIFT) for watermark re-alignment.
+geo = ["opencv-python>=4.6"]
+# REST API / SaaS backend.
+api = ["fastapi>=0.110", "uvicorn[standard]>=0.27", "python-multipart>=0.0.9"]
+# Test tooling.
+dev = ["pytest>=7.0"]
+# Standalone bundling (PyInstaller); MSI packaging additionally needs WiX v4+.
+packaging = ["pyinstaller>=6.0"]
+
+[project.urls]
+Homepage = "https://github.com/arlinamid"
+
+[project.scripts]
+stego = "stegosuite.cli:main"
+stego-gui = "stegosuite.gui.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+stegosuite = ["api/static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

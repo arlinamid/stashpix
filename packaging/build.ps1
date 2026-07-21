@@ -1,0 +1,57 @@
+#requires -Version 5.1
+<#
+.SYNOPSIS
+    Build the standalone bundle (PyInstaller) and the Windows MSI (WiX v4+).
+
+.DESCRIPTION
+    Run from anywhere; paths are resolved relative to the repository root.
+    Steps:
+      1. PyInstaller  -> dist/stego/ (stego.exe + stego-gui.exe + _internal)
+      2. wix build    -> packaging/out/Stegosuite-<version>.msi
+
+.PARAMETER Version
+    Product version written into the MSI. Defaults to 1.1.0.
+
+.PARAMETER SkipBundle
+    Reuse an existing dist/stego and only (re)build the MSI.
+
+.EXAMPLE
+    packaging\build.ps1
+    packaging\build.ps1 -Version 1.2.0
+#>
+param(
+    [string]$Version = "1.1.0",
+    [switch]$SkipBundle
+)
+
+$ErrorActionPreference = "Stop"
+$Root = Split-Path -Parent $PSScriptRoot
+$Dist = Join-Path $Root "dist\stego"
+$OutDir = Join-Path $PSScriptRoot "out"
+$Spec = Join-Path $PSScriptRoot "pyinstaller\stego.spec"
+$Wxs = Join-Path $PSScriptRoot "wix\Package.wxs"
+$Msi = Join-Path $OutDir "Stegosuite-$Version.msi"
+
+Push-Location $Root
+try {
+    if (-not $SkipBundle) {
+        Write-Host "==> PyInstaller bundle" -ForegroundColor Cyan
+        python -m PyInstaller $Spec --noconfirm --distpath (Join-Path $Root "dist") `
+            --workpath (Join-Path $Root "build")
+    }
+    if (-not (Test-Path (Join-Path $Dist "stego.exe"))) {
+        throw "Bundle not found at $Dist (did PyInstaller succeed?)"
+    }
+
+    New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+
+    Write-Host "==> WiX MSI" -ForegroundColor Cyan
+    wix build $Wxs -d StageDir="$Dist" -d Version="$Version" -o $Msi
+
+    Write-Host "`nDone:" -ForegroundColor Green
+    Write-Host "  bundle : $Dist"
+    Write-Host "  msi    : $Msi"
+}
+finally {
+    Pop-Location
+}

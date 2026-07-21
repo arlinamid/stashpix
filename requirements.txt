@@ -1,0 +1,12 @@
+# Core runtime dependencies
+numpy>=1.21
+Pillow>=9.0
+reedsolo>=1.7
+
+# Optional (install as needed):
+#   Geometric (SIFT) synchronization:
+#     pip install opencv-python
+#   REST API / SaaS backend:
+#     pip install fastapi "uvicorn[standard]" python-multipart
+#   Tests:
+#     pip install pytest

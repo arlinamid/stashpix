@@ -1,0 +1,310 @@
+<link rel="icon" type="image/png" href="/static/favicon.png">
+<title>Szteganográfia — roncsolás-tűrés kutatás</title>
+<style>
+  :root{
+    --bg:#0a0e15; --bg2:#0d131c; --panel:#111926; --panel2:#0e151f;
+    --line:#1e2a3a; --line2:#27364a;
+    --ink:#dce6f2; --ink2:#9fb0c4; --mut:#647689;
+    --accent:#33d1c6; --accent2:#7aa2ff;
+    --lsb:#33d1c6; --wm:#7aa2ff;
+    --pass:#3fb96b; --pass-bg:rgba(63,185,107,.14);
+    --warn:#e0a63a; --warn-bg:rgba(224,166,58,.14);
+    --fail:#e75f56; --fail-bg:rgba(231,95,86,.14);
+    --mono:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  :root[data-theme="light"]{
+    --bg:#eef2f7; --bg2:#e6ecf3; --panel:#ffffff; --panel2:#f6f9fc;
+    --line:#d8e0ea; --line2:#c6d2df;
+    --ink:#16202e; --ink2:#3f4f63; --mut:#7286}
+  @media (prefers-color-scheme:light){
+    :root:not([data-theme="dark"]){
+      --bg:#eef2f7; --bg2:#e6ecf3; --panel:#ffffff; --panel2:#f6f9fc;
+      --line:#d8e0ea; --line2:#c6d2df;
+      --ink:#16202e; --ink2:#3f4f63; --mut:#7286}
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:
+      radial-gradient(1200px 600px at 82% -8%, rgba(51,209,198,.10), transparent 60%),
+      radial-gradient(900px 500px at 8% 108%, rgba(122,162,255,.10), transparent 60%),
+      var(--bg);
+    color:var(--ink);font-family:var(--sans);
+    display:grid;place-items:center;overflow:hidden;
+  }
+  #stage{
+    width:1920px;height:1080px;padding:26px 30px;
+    display:flex;flex-direction:column;gap:16px;
+    transform-origin:center center;
+    background:
+      repeating-linear-gradient(0deg,transparent 0 26px,rgba(255,255,255,.012) 26px 27px);
+  }
+
+  /* ---------- header ---------- */
+  header{
+    height:92px;flex:0 0 auto;display:flex;align-items:center;gap:26px;
+    border:1px solid var(--line);border-radius:14px;background:linear-gradient(180deg,var(--panel),var(--panel2));
+    padding:0 24px;position:relative;overflow:hidden;
+  }
+  header::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+    background:linear-gradient(180deg,var(--accent),var(--accent2))}
+  .brand{display:flex;flex-direction:column;gap:4px;min-width:430px}
+  .brand h1{margin:0;font-family:var(--mono);font-size:24px;font-weight:600;letter-spacing:.2px}
+  .brand .sub{color:var(--ink2);font-size:13.5px}
+  .brand .sub b{color:var(--accent)}
+  .kpis{display:flex;gap:12px;flex:1;justify-content:flex-end}
+  .kpi{background:var(--panel2);border:1px solid var(--line);border-radius:11px;
+    padding:9px 15px;min-width:150px;display:flex;flex-direction:column;gap:3px}
+  .kpi .l{font-size:10.5px;letter-spacing:.9px;text-transform:uppercase;color:var(--mut);font-family:var(--mono)}
+  .kpi .v{font-size:17px;font-family:var(--mono);font-weight:600}
+  .kpi .v span{font-size:12px;color:var(--ink2);font-weight:400}
+  .kpi.good .v{color:var(--pass)} .kpi.acc .v{color:var(--accent)} .kpi.acc2 .v{color:var(--accent2)}
+
+  /* ---------- grids ---------- */
+  .row1{flex:0 0 418px;display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  .row2{flex:1 1 auto;display:grid;grid-template-columns:1.15fr 1fr;gap:16px}
+
+  .card{border:1px solid var(--line);border-radius:14px;background:linear-gradient(180deg,var(--panel),var(--panel2));
+    padding:15px 16px 14px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+  .card > h2{margin:0 0 3px;font-family:var(--mono);font-size:14.5px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .card > h2 .tag{font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--bg);
+    background:var(--accent);border-radius:5px;padding:2px 6px;font-weight:700}
+  .card > .cap{color:var(--mut);font-size:11.5px;margin:0 0 11px;line-height:1.45}
+  .card .body{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center}
+
+  /* ---------- copies bars ---------- */
+  .bars{display:flex;flex-direction:column;gap:9px}
+  .bar{display:grid;grid-template-columns:44px 1fr 42px;align-items:center;gap:9px;font-family:var(--mono);font-size:12px}
+  .bar .k{color:var(--ink2);text-align:right}
+  .bar .track{height:16px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;overflow:hidden;position:relative}
+  .bar .fill{height:100%;border-radius:5px;background:linear-gradient(90deg,var(--accent2),var(--accent))}
+  .bar .val{color:var(--ink);font-variant-numeric:tabular-nums;text-align:right;font-weight:600}
+  .bar.zero .val{color:var(--fail)}
+
+  /* ---------- swatch chips (bias) ---------- */
+  .chips{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .chip{border:1px solid var(--line);border-radius:11px;background:var(--panel2);padding:11px 12px;display:flex;flex-direction:column;gap:8px}
+  .chip .top{display:flex;align-items:center;gap:9px}
+  .sw{width:24px;height:24px;border-radius:6px;border:1px solid var(--line2);flex:0 0 auto}
+  .chip .nm{font-family:var(--mono);font-size:12.5px}
+  .chip .bias{font-size:10.5px;color:var(--mut)}
+
+  /* ---------- verdict pill ---------- */
+  .pill{font-family:var(--mono);font-size:11px;font-weight:700;border-radius:6px;padding:3px 8px;
+    display:inline-flex;align-items:center;gap:5px;letter-spacing:.3px;width:max-content}
+  .pill::before{content:"";width:7px;height:7px;border-radius:50%}
+  .pass{color:var(--pass);background:var(--pass-bg)} .pass::before{background:var(--pass)}
+  .warn{color:var(--warn);background:var(--warn-bg)} .warn::before{background:var(--warn)}
+  .fail{color:var(--fail);background:var(--fail-bg)} .fail::before{background:var(--fail)}
+
+  /* ---------- before/after ---------- */
+  .ba{display:flex;flex-direction:column;gap:14px}
+  .ba .item{display:flex;flex-direction:column;gap:8px}
+  .ba .lab{font-family:var(--mono);font-size:12px;color:var(--ink2)}
+  .beam{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px}
+  .box{border-radius:9px;padding:10px 12px;text-align:center;font-family:var(--mono);border:1px solid var(--line)}
+  .box .t{font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--mut)}
+  .box .n{font-size:20px;font-weight:700;margin-top:2px}
+  .box.b4{background:var(--fail-bg)} .box.b4 .n{color:var(--fail)}
+  .box.af{background:var(--pass-bg)} .box.af .n{color:var(--pass)}
+  .arrow{font-family:var(--mono);color:var(--accent);font-size:20px}
+
+  /* ---------- matrices ---------- */
+  .mx{display:flex;flex-direction:column;gap:7px;font-family:var(--mono)}
+  .mx .grp{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);margin:5px 0 1px}
+  .mrow{display:grid;align-items:center;gap:8px}
+  .mrow .rl{font-size:12px;color:var(--ink2)}
+  .cell{height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+    font-size:11.5px;font-weight:700;border:1px solid transparent}
+  .c-ok{background:var(--pass-bg);color:var(--pass);border-color:rgba(63,185,107,.3)}
+  .c-no{background:var(--fail-bg);color:var(--fail);border-color:rgba(231,95,86,.3)}
+  .c-part{background:var(--warn-bg);color:var(--warn);border-color:rgba(224,166,58,.3)}
+
+  /* ---------- combined table ---------- */
+  .ctab{display:flex;flex-direction:column;gap:0;font-family:var(--mono)}
+  .ctab .th,.ctab .tr{display:grid;grid-template-columns:1.5fr 1.5fr 46px;align-items:center;gap:10px;padding:8.5px 4px}
+  .ctab .tr{border-top:1px solid var(--line)}
+  .ctab .th{font-size:10px;letter-spacing:.9px;text-transform:uppercase;color:var(--mut)}
+  .ctab .atk{font-size:12.5px;color:var(--ink)}
+  .layer{font-size:11px;font-weight:600;border-radius:6px;padding:3px 9px;width:max-content;display:inline-flex;align-items:center;gap:6px}
+  .layer::before{content:"";width:8px;height:8px;border-radius:2px}
+  .layer.lsb{color:var(--lsb);background:rgba(51,209,198,.12)} .layer.lsb::before{background:var(--lsb)}
+  .layer.wm{color:var(--wm);background:rgba(122,162,255,.12)} .layer.wm::before{background:var(--wm)}
+  .layer.none{color:var(--fail);background:var(--fail-bg)} .layer.none::before{background:var(--fail)}
+  .dot{justify-self:end;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800}
+  .dot.ok{background:var(--pass-bg);color:var(--pass)} .dot.no{background:var(--fail-bg);color:var(--fail)}
+
+  /* ---------- coverage union ---------- */
+  .cov{display:flex;flex-direction:column;font-family:var(--mono)}
+  .cov .ch,.cov .cr{display:grid;grid-template-columns:1.7fr 1fr 1fr 1fr;align-items:center;gap:8px;padding:8px 4px}
+  .cov .cr{border-top:1px solid var(--line)}
+  .cov .ch{font-size:10px;letter-spacing:.7px;text-transform:uppercase;color:var(--mut)}
+  .cov .ch b{font-weight:700}.cov .ch .h-lsb{color:var(--lsb)}.cov .ch .h-wm{color:var(--wm)}.cov .ch .h-comb{color:var(--accent)}
+  .cov .prop{font-size:12px;color:var(--ink)}
+  .cov .v{justify-self:center;font-size:14px;font-weight:800}
+  .cov .yes{color:var(--pass)} .cov .no{color:var(--fail)} .cov .half{color:var(--warn);font-size:11px;font-weight:600}
+  .cov .cr.crit{background:var(--fail-bg);border-radius:8px}
+  .cov .cr.crit .prop{color:var(--fail)}
+
+  footer{position:absolute;left:30px;bottom:8px;font-family:var(--mono);font-size:10.5px;color:var(--mut)}
+  .legend{display:flex;gap:14px;align-items:center}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+</style>
+
+<div id="stage">
+  <header>
+    <div class="brand">
+      <h1>Szteganográfia · roncsolás-tűrés</h1>
+      <div class="sub">Két technika egy képben — <b>LSB v3</b> (Reed-Solomon + szétszórás + whitening) &amp; <b>robusztus DCT-vízjel</b>. Minden érték <b>mért</b>, tesztkép 1122×1402 (4,7M bit).</div>
+    </div>
+    <div class="kpis">
+      <div class="kpi acc"><div class="l">LSB v3 · crop</div><div class="v">85%<span> roncsolásig</span></div></div>
+      <div class="kpi acc2"><div class="l">Vízjel</div><div class="v">JPEG q35<span> + resize 40%</span></div></div>
+      <div class="kpi good"><div class="l">Kombinált</div><div class="v">6/6<span> támadás túlélve*</span></div></div>
+      <div class="kpi"><div class="l">Vízjel láthatóság</div><div class="v">33,5<span> dB PSNR</span></div></div>
+    </div>
+  </header>
+
+  <div class="row1">
+    <!-- P1: copies sweep -->
+    <div class="card">
+      <h2>Redundancia skálázás</h2>
+      <p class="cap">LSB v3 túlélt maximális <b>block-roncsolás</b> a másolatszám (copies) függvényében · nsym=64.</p>
+      <div class="body">
+        <div class="bars">
+          <div class="bar zero"><div class="k">1</div><div class="track"><div class="fill" style="width:1%"></div></div><div class="val">0%</div></div>
+          <div class="bar"><div class="k">3</div><div class="track"><div class="fill" style="width:16.7%"></div></div><div class="val">10%</div></div>
+          <div class="bar"><div class="k">5</div><div class="track"><div class="fill" style="width:33.3%"></div></div><div class="val">20%</div></div>
+          <div class="bar"><div class="k">9</div><div class="track"><div class="fill" style="width:50%"></div></div><div class="val">30%</div></div>
+          <div class="bar"><div class="k">15</div><div class="track"><div class="fill" style="width:66.7%"></div></div><div class="val">40%</div></div>
+          <div class="bar"><div class="k">30</div><div class="track"><div class="fill" style="width:91.7%"></div></div><div class="val">55%</div></div>
+          <div class="bar"><div class="k">255</div><div class="track"><div class="fill" style="width:100%"></div></div><div class="val">85%</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- P2: bias discovery -->
+    <div class="card">
+      <h2>A bias-felfedezés</h2>
+      <p class="cap">Azonos 50%-os folt, eltérő <b>szín</b> — a torzított (egyszínű) roncsolás megölte a fejlécet. <i>Whitening előtt.</i></p>
+      <div class="body">
+        <div class="chips">
+          <div class="chip"><div class="top"><span class="sw" style="background:#000"></span><span class="nm">fekete</span></div><span class="bias">LSB→0 (all-0 bias)</span><span class="pill fail">✗ bukott</span></div>
+          <div class="chip"><div class="top"><span class="sw" style="background:#fff"></span><span class="nm">fehér</span></div><span class="bias">LSB→1 (all-1 bias)</span><span class="pill fail">✗ bukott</span></div>
+          <div class="chip"><div class="top"><span class="sw" style="background:#f0f"></span><span class="nm">magenta</span></div><span class="bias">vegyes (1,0,1)</span><span class="pill pass">✓ OK</span></div>
+          <div class="chip"><div class="top"><span class="sw" style="background:linear-gradient(45deg,#555,#ccc,#333,#aaa)"></span><span class="nm">véletlen</span></div><span class="bias">torzítatlan</span><span class="pill pass">✓ OK</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- P3: whitening before/after -->
+    <div class="card">
+      <h2>Whitening javítás</h2>
+      <p class="cap">Kulcsos XOR-maszk → az egyszínű folt torzított hibája <b>szimmetrikussá</b> válik. Fekete folt, copies=255.</p>
+      <div class="body">
+        <div class="ba">
+          <div class="item">
+            <div class="lab">Túlélt fekete-folt roncsolás</div>
+            <div class="beam">
+              <div class="box b4"><div class="t">Előtte</div><div class="n">50%<sup style="font-size:11px">✗</sup></div></div>
+              <div class="arrow">→</div>
+              <div class="box af"><div class="t">Utána</div><div class="n">85%</div></div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="lab">Bias-hatás (fekete vs véletlen)</div>
+            <div class="beam">
+              <div class="box b4"><div class="t">Előtte</div><div class="n" style="font-size:15px">óriási</div></div>
+              <div class="arrow">→</div>
+              <div class="box af"><div class="t">Utána</div><div class="n" style="font-size:15px">nincs</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- P4: robust watermark matrix -->
+    <div class="card">
+      <h2>Robusztus DCT-vízjel</h2>
+      <p class="cap">128-bites ID mid-frekvenciás DCT-be · kanonikus 512 rács · registry lookup.</p>
+      <div class="body">
+        <div class="mx">
+          <div class="grp">JPEG minőség</div>
+          <div class="mrow" style="grid-template-columns:1fr 1fr 1fr 1fr">
+            <div class="cell c-ok">q90</div><div class="cell c-ok">q70</div><div class="cell c-ok">q50</div><div class="cell c-ok">q35</div>
+          </div>
+          <div class="grp">Átméretezés</div>
+          <div class="mrow" style="grid-template-columns:1fr 1fr 1fr">
+            <div class="cell c-ok">75%</div><div class="cell c-ok">50%</div><div class="cell c-ok">40%</div>
+          </div>
+          <div class="grp">Kombinált támadás</div>
+          <div class="mrow" style="grid-template-columns:1fr 1fr">
+            <div class="cell c-ok">resize50 + JPEG q50</div><div class="cell c-ok">resize75 + JPEG q40</div>
+          </div>
+          <div class="mrow" style="grid-template-columns:1fr 1fr;margin-top:4px">
+            <div class="cell c-ok" style="background:transparent;border-color:var(--line);color:var(--ink2)">rossz kulcs → elutasítva</div>
+            <div class="cell c-ok" style="background:transparent;border-color:var(--line);color:var(--ink2)">nincs fals találat</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row2">
+    <!-- P5: combined graceful degradation -->
+    <div class="card">
+      <h2>Kombinált rendszer <span class="tag">graceful degradation</span></h2>
+      <p class="cap">Mindkét réteg egy képben. A kiolvasás a legjobb elérhető réteget használja — a rendszer jelzi, melyik állította helyre az üzenetet.</p>
+      <div class="body" style="justify-content:flex-start">
+        <div class="ctab">
+          <div class="th"><div>Támadás a képen</div><div>Helyreállító réteg</div><div style="justify-self:end">Üzenet</div></div>
+          <div class="tr"><div class="atk">érintetlen PNG</div><div><span class="layer lsb">LSB · teljes üzenet</span></div><div class="dot ok">✓</div></div>
+          <div class="tr"><div class="atk">átfestés 30%</div><div><span class="layer lsb">LSB · teljes üzenet</span></div><div class="dot ok">✓</div></div>
+          <div class="tr"><div class="atk">átfestés 55%</div><div><span class="layer wm">robusztus ID → registry</span></div><div class="dot ok">✓</div></div>
+          <div class="tr"><div class="atk">JPEG q70</div><div><span class="layer wm">robusztus ID → registry</span></div><div class="dot ok">✓</div></div>
+          <div class="tr"><div class="atk">resize 50%</div><div><span class="layer wm">robusztus ID → registry</span></div><div class="dot ok">✓</div></div>
+          <div class="tr"><div class="atk">resize 50% + JPEG q50</div><div><span class="layer wm">robusztus ID → registry</span></div><div class="dot ok">✓</div></div>
+          <div class="tr"><div class="atk">AI-újragenerálás (ChatGPT)</div><div><span class="layer none">— egyik réteg sem</span></div><div class="dot no">✗</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- P6: coverage union -->
+    <div class="card">
+      <h2>Lefedettség — a három eszköz uniója</h2>
+      <p class="cap">Melyik technika mit visel el. A <b style="color:var(--accent)">kombinált</b> az LSB és a vízjel képességeinek uniója; egyetlen közös vakfolt marad.</p>
+      <div class="body" style="justify-content:flex-start">
+        <div class="cov">
+          <div class="ch"><div>Képesség / támadás</div><b class="h-lsb" style="justify-self:center">LSB v3</b><b class="h-wm" style="justify-self:center">Vízjel</b><b class="h-comb" style="justify-self:center">Kombinált</b></div>
+          <div class="cr"><div class="prop">teljes hosszú üzenet</div><div class="v yes">✓</div><div class="v half">csak ID</div><div class="v yes">✓</div></div>
+          <div class="cr"><div class="prop">crop / átfestés</div><div class="v yes">✓</div><div class="v yes">✓</div><div class="v yes">✓</div></div>
+          <div class="cr"><div class="prop">JPEG-tömörítés</div><div class="v no">✗</div><div class="v yes">✓</div><div class="v yes">✓</div></div>
+          <div class="cr"><div class="prop">átméretezés</div><div class="v no">✗</div><div class="v yes">✓</div><div class="v yes">✓</div></div>
+          <div class="cr"><div class="prop">registry nélkül működik</div><div class="v yes">✓</div><div class="v no">✗</div><div class="v yes">✓</div></div>
+          <div class="cr crit"><div class="prop">AI-újragenerálás</div><div class="v no">✗</div><div class="v no">✗</div><div class="v no">✗</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="legend">
+      <span><i style="background:var(--pass)"></i> OK / túléli</span>
+      <span><i style="background:var(--warn)"></i> részleges</span>
+      <span><i style="background:var(--fail)"></i> bukás</span>
+      <span style="color:var(--mut)">* AI-újragenerálás kivételével — az minden pixelt kicserél</span>
+    </div>
+  </footer>
+</div>
+
+<script>
+  const stage = document.getElementById('stage');
+  function fit(){
+    const s = Math.min(window.innerWidth/1920, window.innerHeight/1080);
+    stage.style.transform = 'scale(' + s + ')';
+  }
+  fit();
+  window.addEventListener('resize', fit);
+</script>
