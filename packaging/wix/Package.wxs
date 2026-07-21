@@ -5,8 +5,8 @@
   Build (after PyInstaller produced dist/stego):
     wix build packaging/wix/Package.wxs ^
       -d StageDir=dist\stego ^
-      -d Version=1.1.0 ^
-      -o packaging\out\Stegosuite-1.1.0.msi
+      -d Version=1.2.0 ^
+      -o packaging\out\Stegosuite-1.2.0.msi
 
   Keep UpgradeCode STABLE across releases so upgrades replace the old version.
 -->

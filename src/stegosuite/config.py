@@ -60,6 +60,7 @@ class ExtractConfig:
     robust_q: float = DEFAULT_Q
     reference_path: Optional[str] = None   # for geometric (SIFT) sync
     blind_geo: bool = True                 # reference-free deskew/crop fallback
+    morph_geo: bool = True                 # SIFT+TPS fallback for non-linear morphs
 
 
 @dataclass

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stegosuite"
-version = "1.1.0"
+version = "1.2.0"
 description = "Multi-layer steganography suite (LSB + robust DCT watermark + visible watermark) with unified CLI, desktop GUI and REST API."
 readme = "README.md"
 requires-python = ">=3.9"

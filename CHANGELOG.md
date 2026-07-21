@@ -5,6 +5,25 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-07-21
+
+### Added
+- **Morph sync layer (SIFT + Thin-Plate Spline + dense DIS optical flow)** as a
+  fallback after homography when recovering from non-linear warps (swirl,
+  elastic, wave). Exposed as `layer_key=geo_tps`; controlled by
+  `ExtractConfig.morph_geo` (on by default).
+- Local-MAD outlier filtering and spatially binned TPS control points (default
+  128) for more stable non-rigid registration.
+- Pytest coverage for morph recovery, mild real-world edits (blur / JPEG /
+  crop / piece-on-green), and composite stress (morph + 80% scale + green
+  canvas + partial occlusion): `tests/test_morph_geo.py`,
+  `tests/test_realistic_attacks.py`, `tests/test_stress_composite.py`, plus
+  shared `tests/geo_helpers.py`.
+
+### Changed
+- Geometric recovery pipeline: direct → blind/auto homography → **TPS+flow**.
+- `large_photo_path` fixture (~768px) for geometric / attack tests.
+
 ## [1.1.0] - 2026-07-21
 
 ### Added
@@ -55,5 +74,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Standalone bundling via PyInstaller and a Windows MSI via WiX v4+.
 - Released under the PolyForm Noncommercial License 1.0.0.
 
+[1.2.0]: https://github.com/arlinamid/stegosuite/releases/tag/v1.2.0
 [1.1.0]: https://github.com/arlinamid/stegosuite/releases/tag/v1.1.0
 [1.0.0]: https://github.com/arlinamid/stegosuite/releases/tag/v1.0.0

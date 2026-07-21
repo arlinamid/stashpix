@@ -18,6 +18,14 @@ stego_refs/
 # Stray test/debug artifacts at repo root
 /test_image.png
 /test_image_stego.png
+/_*.png
+/_*.jpg
+/_*.jpeg
+/_ab_*.png
+/_mild_*.png
+/_morph_*.png
+/_real_*.png
+/_stress_*.png
 
 # Editor / OS
 .vscode/

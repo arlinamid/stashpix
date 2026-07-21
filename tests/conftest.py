@@ -36,6 +36,18 @@ def photo_path(tmp_path):
 
 
 @pytest.fixture()
+def large_photo_path(tmp_path):
+    """Larger cover (~768px) for geometric / mild-attack tests."""
+    img = Image.open(os.path.join(ASSETS, "sample.png")).convert("RGB")
+    w, h = img.size
+    target = 768
+    img = img.resize((target, max(1, round(target * h / w))), Image.LANCZOS)
+    out = tmp_path / "photo_large.png"
+    img.save(out)
+    return str(out)
+
+
+@pytest.fixture()
 def noise_path(tmp_path):
     """A small textured image — fast and high-capacity for LSB tests."""
     rng = np.random.default_rng(0)

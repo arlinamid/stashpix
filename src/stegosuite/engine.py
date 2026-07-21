@@ -169,17 +169,30 @@ class StegoEngine:
             warped, stat = self.geometry.warp_with_features(recv_rgb, k1, d1, ref)
             if stat.get("inliers", 0) > best["inliers"]:
                 best = {"id": id_hex, **stat}
-            if warped is None:
-                continue
-            result = self.robust.extract(warped, config)
-            if result is not None and result.message is not None:
-                info["auto_ref"] = {"used": True, "scanned": scanned,
-                                    "matched": id_hex, **stat}
-                info["layer"] = t("layer.robust.name")
-                info["layer_key"] = "robust"
-                info["robust_info"] = result.info
-                info["robust_id"] = result.info.get("id")
-                return result.message
+            if warped is not None:
+                result = self.robust.extract(warped, config)
+                if result is not None and result.message is not None:
+                    info["auto_ref"] = {"used": True, "scanned": scanned,
+                                        "matched": id_hex, "mode": "homography", **stat}
+                    info["layer"] = t("layer.robust.name")
+                    info["layer_key"] = "robust"
+                    info["robust_info"] = result.info
+                    info["robust_id"] = result.info.get("id")
+                    return result.message
+            if getattr(config, "morph_geo", True):
+                warped_tps, stat_tps = self.geometry.warp_tps_with_features(
+                    recv_rgb, k1, d1, ref)
+                if warped_tps is None:
+                    continue
+                result = self.robust.extract(warped_tps, config)
+                if result is not None and result.message is not None:
+                    info["auto_ref"] = {"used": True, "scanned": scanned,
+                                        "matched": id_hex, **stat_tps}
+                    info["layer"] = t("layer.geo_tps.name")
+                    info["layer_key"] = "geo_tps"
+                    info["robust_info"] = result.info
+                    info["robust_id"] = result.info.get("id")
+                    return result.message
         info["auto_ref"] = {"used": True, "scanned": scanned, "matched": None,
                             "best": best}
         return None
@@ -226,13 +239,28 @@ class StegoEngine:
 
         warped, stat = self.geometry.warp_to_reference(recv, ref.convert("RGB"))
         info["geo"] = {"used": True, "registered": warped is not None, **stat}
-        if warped is None:
+        if warped is not None:
+            result = self.robust.extract(warped, config)
+            if result is not None and result.message is not None:
+                info["layer"] = t("layer.robust.name")
+                info["layer_key"] = "robust"
+                info["robust_info"] = result.info
+                info["robust_id"] = result.info.get("id")
+                return result.message, info
+
+        if not getattr(config, "morph_geo", True):
             return None, info
 
-        result = self.robust.extract(warped, config)
+        warped_tps, stat_tps = self.geometry.warp_tps_to_reference(
+            recv, ref.convert("RGB"))
+        info["geo_tps"] = {"used": True, "registered": warped_tps is not None, **stat_tps}
+        if warped_tps is None:
+            return None, info
+
+        result = self.robust.extract(warped_tps, config)
         if result is not None and result.message is not None:
-            info["layer"] = t("layer.robust.name")
-            info["layer_key"] = "robust"
+            info["layer"] = t("layer.geo_tps.name")
+            info["layer_key"] = "geo_tps"
             info["robust_info"] = result.info
             info["robust_id"] = result.info.get("id")
             return result.message, info

@@ -39,7 +39,7 @@ User data (registry + reference index) is **not** part of the install; it lives 
 
 ```powershell
 # from the repository root
-packaging\build.ps1                 # bundle + MSI, version 1.1.0
+packaging\build.ps1                 # bundle + MSI, version 1.2.0
 packaging\build.ps1 -Version 1.2.0  # set the MSI version
 packaging\build.ps1 -SkipBundle     # rebuild only the MSI from an existing dist/stego
 ```
@@ -48,7 +48,7 @@ Or run the steps manually:
 
 ```powershell
 python -m PyInstaller packaging\pyinstaller\stego.spec --noconfirm
-wix build packaging\wix\Package.wxs -d StageDir=dist\stego -d Version=1.1.0 -o packaging\out\Stegosuite-1.1.0.msi
+wix build packaging\wix\Package.wxs -d StageDir=dist\stego -d Version=1.2.0 -o packaging\out\Stegosuite-1.2.0.msi
 ```
 
 ## Notes

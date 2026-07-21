@@ -10,7 +10,7 @@
       2. wix build    -> packaging/out/Stegosuite-<version>.msi
 
 .PARAMETER Version
-    Product version written into the MSI. Defaults to 1.1.0.
+    Product version written into the MSI. Defaults to 1.2.0.
 
 .PARAMETER SkipBundle
     Reuse an existing dist/stego and only (re)build the MSI.
@@ -20,7 +20,7 @@
     packaging\build.ps1 -Version 1.2.0
 #>
 param(
-    [string]$Version = "1.1.0",
+    [string]$Version = "1.2.0",
     [switch]$SkipBundle
 )
 

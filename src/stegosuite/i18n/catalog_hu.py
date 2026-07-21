@@ -48,6 +48,7 @@ CATALOG = {
     "layer.lsb.name": "LSB (teljes üzenet, veszteségmentes)",
     "layer.robust.name": "robusztus ID + registry",
     "layer.visible.name": "látható vízjel",
+    "layer.geo_tps.name": "morph szinkron (SIFT + TPS + flow) + registry",
     "layer.none": "egyik réteg sem adott vissza üzenetet",
 
     # -------------------------------------------------------------------- CLI

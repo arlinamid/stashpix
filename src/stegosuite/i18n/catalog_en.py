@@ -48,6 +48,7 @@ CATALOG = {
     "layer.lsb.name": "LSB (full message, lossless)",
     "layer.robust.name": "robust ID + registry",
     "layer.visible.name": "visible watermark",
+    "layer.geo_tps.name": "morph sync (SIFT + TPS + flow) + registry",
     "layer.none": "no layer recovered a message",
 
     # -------------------------------------------------------------------- CLI

@@ -127,7 +127,7 @@ A standalone bundle (no Python required) plus a Windows MSI installer live under
 
 ```powershell
 # from a dev env with the package + extras installed
-packaging\build.ps1            # -> dist/stego/  and  packaging/out/Stegosuite-1.1.0.msi
+packaging\build.ps1            # -> dist/stego/  and  packaging/out/Stegosuite-1.2.0.msi
 ```
 
 The bundle contains `stego.exe` (CLI) and `stego-gui.exe` (desktop app). The MSI
