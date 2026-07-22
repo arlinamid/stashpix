@@ -49,7 +49,7 @@ def _build_parser() -> argparse.ArgumentParser:
     g = e.add_mutually_exclusive_group(required=True)
     g.add_argument("-m", "--message", help=t("cli.arg.message"))
     g.add_argument("--message-file", help=t("cli.arg.message_file"))
-    e.add_argument("-k", "--key", default=None, help=t("cli.arg.key"))
+    e.add_argument("-k", "--key", required=True, help=t("cli.arg.key"))
     e.add_argument("--nsym", type=int, default=DEFAULT_NSYM, help=t("cli.arg.nsym"))
     e.add_argument("--copies", type=int, default=DEFAULT_COPIES, help=t("cli.arg.copies"))
     e.add_argument("--method", choices=["jnd", "qim"], default=DEFAULT_METHOD,
@@ -65,7 +65,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     x = sub.add_parser("extract", help=t("cli.extract.help"))
     x.add_argument("-i", "--image", required=True, help=t("cli.arg.image_any"))
-    x.add_argument("-k", "--key", default=None, help=t("cli.arg.key"))
+    x.add_argument("-k", "--key", required=True, help=t("cli.arg.key"))
     x.add_argument("--method", choices=["jnd", "qim"], default=None, help=t("cli.arg.method"))
     x.add_argument("--strength", type=float, default=DEFAULT_STRENGTH, help=t("cli.arg.strength"))
     x.add_argument("-Q", type=float, default=DEFAULT_Q, help=t("cli.arg.q"))
@@ -78,7 +78,7 @@ def _build_parser() -> argparse.ArgumentParser:
     gg = sub.add_parser("extract-geo", help=t("cli.extract.help"))
     gg.add_argument("-i", "--image", required=True, help=t("cli.arg.image_any"))
     gg.add_argument("-r", "--reference", required=True, help=t("cli.arg.reference"))
-    gg.add_argument("-k", "--key", default=None, help=t("cli.arg.key"))
+    gg.add_argument("-k", "--key", required=True, help=t("cli.arg.key"))
     gg.add_argument("--method", choices=["jnd", "qim"], default=None, help=t("cli.arg.method"))
     gg.add_argument("--strength", type=float, default=DEFAULT_STRENGTH, help=t("cli.arg.strength"))
     gg.add_argument("--show-info", action="store_true", help=t("cli.arg.show_info"))

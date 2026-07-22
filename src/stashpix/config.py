@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+from .core.keys import require_key
+
 # --- LSB layer defaults ---------------------------------------------------
 DEFAULT_NSYM = 64          # Reed-Solomon ECC bytes per 255-byte block
 DEFAULT_COPIES = 3         # redundant LSB copies (combined pipeline default)
@@ -53,6 +55,12 @@ class EmbedConfig:
     enable_wam: bool = False
     enable_syncseal: bool = False
 
+    def __post_init__(self):
+        # Single chokepoint for CLI, GUI, REST and library callers alike.
+        # Before 1.5.0 a missing key silently fell back to the constant seed
+        # 1337, so the output looked encrypted but anyone could read it.
+        require_key(self.key)
+
 
 @dataclass
 class ExtractConfig:
@@ -69,6 +77,9 @@ class ExtractConfig:
     # Optional AI extract helpers (default off)
     try_wam: bool = False
     try_syncseal: bool = False
+
+    def __post_init__(self):
+        require_key(self.key)
 
 
 @dataclass

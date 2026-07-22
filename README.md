@@ -23,15 +23,36 @@ CLI, desktop GUI, and REST API. Fully internationalized (English + Hungarian).
 On extraction the engine walks layers in recovery order: LSB (lossless) → robust
 ID → blind deskew → auto-match (homography, then morph TPS+flow).
 
+**A message only ever comes from bits actually present in the image.** If the
+watermark is destroyed, extraction fails closed and returns nothing. It never
+falls back to "this looks like a picture I have on file" — see
+[Known limits](#known-limits).
+
+### Keys
+
+A key is **mandatory**; there is no default. Watermark keys are password-derived
+and **portable**: a decoder only ever has the password, so an image embedded on
+one machine opens on another. Two derivations, deliberately different:
+
+| Secret | Derivation | Why |
+| ------ | ---------- | --- |
+| Content key (AES-GCM) | Argon2id + **fresh 16-byte salt per message**, salt stored in the payload | Where confidentiality lives; same password never yields the same key twice |
+| Permutation seed | Argon2id + fixed protocol constant | Cannot be salted — you would need the permutation to read the salt |
+| Registry key (local) | Random material + **user+machine fingerprint** | Never leaves the machine, so a stolen key file alone does not decrypt it |
+
 ### Known limits
 
-The invisible robust ID uses **mid-frequency DCT + JND QIM** with **per-block
-adaptive strength** (flat areas skipped, texture at full power — default
-`robust_auto_adapt=True`). It survives JPEG,
-resize, crop, and **mild Gaussian blur (σ≈1)**. Strong defocus (**σ≥2**) is not
-supported without visible artifacts — low-frequency embedding was tried and
-rejected (visible 8×8 grid on sky/skin). SyncSeal/WAM do not restore frequency
-content after blur.
+The invisible robust ID uses **mid-frequency DCT + JND QIM** with per-block
+adaptive strength (flat areas skipped, texture gets more). The QIM step is
+derived only from quantities the embedder never modifies, so encoder and blind
+decoder agree on the lattice. Embedding self-verifies: it escalates strength
+until the mark reads back **and** survives JPEG q50, and raises rather than
+shipping an image whose watermark cannot be read.
+
+It survives JPEG, resize, crop, and **mild Gaussian blur (σ≈1)**. Strong defocus
+(**σ≥2**) destroys it — low-frequency embedding was measured and rejected
+(visible 8×8 grid on sky/skin), and SyncSeal/WAM do not restore frequency
+content after blur. In that case extraction reports failure; it does not guess.
 
 ## Architecture
 
@@ -102,11 +123,15 @@ Contents: encrypted `registry.json`, `stashpix_refs/` (reference images + pHash)
 `.registry_key` (local encryption key). Overrides: `STASHPIX_HOME`, `STASHPIX_REGISTRY`,
 `STASHPIX_REGISTRY_KEY`.
 
-## Security (1.3.0+)
+## Security
 
-- **Argon2id** key derivation (replaces SHA-256 + `random.Random`)
+- **Mandatory key** — no default, no silent fallback
+- **Argon2id** key derivation, **per-message random salt** for the content key
 - **AES-GCM** for LSB payload and encrypted registry at rest
+- **User+machine binding** for local at-rest secrets
+- **SHA-256-pinned** AI model artifacts, repo fetched at a pinned commit
 - **API key** optional auth for registry and mutation endpoints
+- No similarity-based attribution: an unwatermarked image is never matched
 
 ## Optional AI sync / localize (CPU)
 
@@ -130,10 +155,17 @@ stashpix extract -i out.png -k pass --try-syncseal --try-wam --show-info
 - Third-party weights/code: Meta SyncSeal / Watermark Anything (MIT WAM weights);
   see their upstream licenses.
 
+**Integrity.** These checkpoints are deserialized by `torch.load` and the WAM
+repo is imported from `sys.path` — both run code. Every artifact is SHA-256
+pinned and verified before use (including paths given via the env overrides),
+and the repo is fetched at a pinned commit rather than a moving branch. A
+mismatch is a hard failure, not a "model unavailable" downgrade. Deliberate
+overrides need `STASHPIX_ALLOW_UNPINNED_MODELS=1`.
+
 ## Bundled app
 
 ```powershell
-packaging\build.ps1 -Version 1.4.0   # -> dist/stashpix/ + packaging/out/stashpix-1.4.0.msi
+packaging\build.ps1 -Version 1.5.0   # -> dist/stashpix/ + packaging/out/stashpix-1.5.0.msi
 ```
 
 ## Tests

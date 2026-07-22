@@ -39,8 +39,8 @@ User data (registry + reference index) is **not** part of the install; it lives 
 
 ```powershell
 # from the repository root
-packaging\build.ps1                 # bundle + MSI, version 1.4.0
-packaging\build.ps1 -Version 1.4.0  # set the MSI version
+packaging\build.ps1                 # bundle + MSI, version 1.5.0
+packaging\build.ps1 -Version 1.5.0  # set the MSI version
 packaging\build.ps1 -SkipBundle     # rebuild only the MSI from an existing dist/stashpix
 ```
 
@@ -48,7 +48,7 @@ Or run the steps manually:
 
 ```powershell
 python -m PyInstaller packaging\pyinstaller\stashpix.spec --noconfirm
-wix build packaging\wix\Package.wxs -d StageDir=dist\\stashpix -d Version=1.4.0 -o packaging\out\stashpix-1.4.0.msi
+wix build packaging\wix\Package.wxs -d StageDir=dist\\stashpix -d Version=1.5.0 -o packaging\out\stashpix-1.5.0.msi
 ```
 
 ## Notes

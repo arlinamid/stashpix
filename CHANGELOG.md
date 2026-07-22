@@ -7,6 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-07-22
+
+Security and reliability release. **Contains breaking changes** — see below.
+
+### Removed
+- **`edge_match` registry-fingerprint fallback (security).** It resolved a
+  registry entry by perceptual-hash similarity alone. Because the robust
+  watermark is invisible, the stored reference is ~identical to the *unmarked*
+  original, so an image carrying no watermark matched at distance 0 and was
+  attributed the owner's message — as was a q30 JPEG of it. The layer was on by
+  default, so any caller checking only `msg is not None` got a false positive.
+  For a tool whose purpose is proving ownership, that inverts the guarantee.
+  Perceptual hashes now only *shortlist* candidates for the SIFT/robust path,
+  which still confirms against real watermark bits.
+  Removes `ExtractConfig.edge_match*` (6 fields), `Registry.resolve_fingerprint()`
+  and `keys.embed_key_tag()`.
+- **`robust_auto_adapt` config flag.** With an embed-invariant step the
+  non-adaptive path is strictly worse and had no remaining use case.
+- Dev probe scripts for the removed feature (one contained a hardcoded personal
+  path).
+
+### Fixed
+- **The robust DCT layer lost its own ID on clean, lossless roundtrips.**
+  `block_slack()` derived the QIM step from Watson contrast masking, whose
+  self-masking term scales with the magnitude of the very coefficient QIM
+  modulates — so the encoder (clean block) and the blind decoder (watermarked
+  block) computed different lattices. Measured: **24.8% median step mismatch**,
+  29.2% of coefficients off by >50% (enough to flip parity), and **4/10**
+  successful clean roundtrips on `city_architecture.png` at the default
+  strength. Now 5.75% median and reliable on every stock cover.
+- **Raising `strength` made recovery worse, not better** — 0/10 at strength 6.0
+  on five of six covers, contradicting the documented "higher = more robust".
+  Same root cause: a larger modulation meant a larger encoder/decoder step
+  disagreement.
+- **Embeds are verified against the JPEG floor, not just a clean read-back.** On
+  a cover already at the canonical width there is no resize round trip, so the
+  base strength passed a clean check trivially and shipped a mark too weak to
+  survive JPEG. Escalation now targets JPEG q50; if the ladder runs out, the
+  image still ships readable but reports `jpeg_verified: False` rather than
+  claiming a guarantee that was never checked.
+
+### Security
+- **A key is now mandatory.** A missing key silently fell back to the constant
+  `DEFAULT_SEED = 1337`: the output looked encrypted, but anyone could read it.
+  `EmbedConfig`/`ExtractConfig` reject a missing or blank key, and `-k` is
+  required on the CLI.
+- **Per-message random salt for the content key (LSB format v2 → v3).**
+  `derive_key_bytes` salted every derivation with one hardcoded constant
+  (`sha256("stashpix:salt:v1")`), so a password mapped to one globally fixed key
+  — precomputable once, reusable against every image the tool ever produced.
+  Each embed now draws a fresh 16-byte salt carried in the payload. **v2 and
+  earlier payloads are rejected, not read.**
+- **Local secrets are bound to the user+machine.** The registry key mixes stored
+  random material with a machine fingerprint, so lifting the key file alone onto
+  another box does not decrypt a copied registry (registry format v1 → v2; v1 is
+  still read and upgraded in place).
+- **Pinned digests for the optional AI artifacts.** SyncSeal/WAM checkpoints are
+  fed to `torch.load(weights_only=False)` and the vendored repo is imported from
+  `sys.path` — both arbitrary code execution. They were fetched with no
+  integrity check, and the repo was cloned from whatever `main` pointed at.
+  Now SHA-256-pinned, verified before the temp file is published, re-checked on
+  every load (including operator-supplied paths), and the repo is fetched at a
+  pinned commit. Override with `STASHPIX_ALLOW_UNPINNED_MODELS=1`.
+
+### Note on key portability
+Watermark keys stay **password-derived and portable** by design: a decoder only
+ever has the password, so machine-binding them would make an image embedded on
+one computer unreadable on another. The permutation seed cannot take a random
+salt at all — you would need the permutation to read the salt. Confidentiality
+therefore rests on the salted AES-GCM content key, not on the seed. Only local
+at-rest secrets are machine-bound.
+
 ## [1.4.0] - 2026-07-22
 
 ### Added
@@ -132,6 +204,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Standalone bundling via PyInstaller and a Windows MSI via WiX v4+.
 - Released under the PolyForm Noncommercial License 1.0.0.
 
+[1.5.0]: https://github.com/arlinamid/stashpix/releases/tag/v1.5.0
 [1.4.0]: https://github.com/arlinamid/stashpix/releases/tag/v1.4.0
 [1.3.0]: https://github.com/arlinamid/stashpix/releases/tag/v1.3.0
 [1.2.0]: https://github.com/arlinamid/stashpix/releases/tag/v1.2.0

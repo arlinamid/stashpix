@@ -12,7 +12,12 @@ from ..core.keys import registry_master_key
 from ..core.perceptual import dhash_hex, edge_hash_hex, hamming_hex, phash_hex
 from ..paths import REFS_DIRNAME, default_registry_path
 
-REGISTRY_FORMAT = "stashpix-registry-v1"
+# v2 binds the encryption key to this user+machine, so lifting the key file
+# alone onto another box does not decrypt a copied registry. v1 (unbound) is
+# still read so an existing registry survives the upgrade -- it is re-encrypted
+# as v2 on the next write.
+REGISTRY_FORMAT = "stashpix-registry-v2"
+LEGACY_REGISTRY_FORMAT = "stashpix-registry-v1"
 PHASH_TOP_K = 10
 
 
@@ -29,15 +34,16 @@ class Registry:
             wrapper = json.load(f)
         if not isinstance(wrapper, dict):
             return {}
-        if wrapper.get("format") != REGISTRY_FORMAT:
+        fmt = wrapper.get("format")
+        if fmt not in (REGISTRY_FORMAT, LEGACY_REGISTRY_FORMAT):
             # Legacy plaintext JSON (pre-1.3.0) — read directly and re-save encrypted.
             if wrapper and all(isinstance(v, dict) for v in wrapper.values()):
                 return wrapper
             return {}
         nonce = b64_decode(wrapper["nonce"])
         ciphertext = b64_decode(wrapper["ciphertext"])
-        key = registry_master_key()
-        raw = aead_decrypt(key, nonce, ciphertext, associated_data=REGISTRY_FORMAT.encode())
+        key = registry_master_key(bind_machine=fmt == REGISTRY_FORMAT)
+        raw = aead_decrypt(key, nonce, ciphertext, associated_data=fmt.encode())
         data = json.loads(raw.decode("utf-8"))
         return data if isinstance(data, dict) else {}
 
