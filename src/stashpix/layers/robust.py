@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import uuid
 from typing import List, Optional
 
@@ -28,6 +29,11 @@ CANON_WIDTH = 512
 # retry at a higher strength instead of silently shipping an unreadable mark.
 STRENGTH_LADDER = (1.0, 1.35, 1.8, 2.4, 3.2)
 MAX_EMBED_ATTEMPTS = len(STRENGTH_LADDER)
+# The robustness floor the product promises. Verifying only a clean read-back is
+# not enough: on a cover that needs no canonical resize, the base strength can
+# pass clean and still be too weak to survive JPEG, which is the whole point of
+# this layer. Escalation targets this quality.
+VERIFY_JPEG_QUALITY = 50
 
 
 class RobustWatermarkLayer(Layer):
@@ -60,6 +66,16 @@ class RobustWatermarkLayer(Layer):
         frame = extract_from_Y(Y, seed, method, Q, strength, coefs=COEFS_MID)
         return parse_frame(frame) == expect
 
+    def _survives_jpeg(self, image: Image.Image, seed, method, Q, strength,
+                       expect: bytes, *, quality: int = VERIFY_JPEG_QUALITY) -> bool:
+        """Does the mark still read back after a round trip through JPEG?"""
+        buf = io.BytesIO()
+        image.save(buf, "JPEG", quality=quality)
+        buf.seek(0)
+        with Image.open(buf) as recoded:
+            return self._reads_back(recoded.convert("RGB"), seed, method, Q,
+                                    strength, expect)
+
     def embed(self, image: Image.Image, message: str, config,
               *, source_image: str = "", output_image: str = "") -> EmbedOutcome:
         method = config.robust_method or "jnd"
@@ -72,24 +88,33 @@ class RobustWatermarkLayer(Layer):
         seed = derive_seed(config.key)
 
         # The canonical-scale resize round trip and 8-bit quantization are lossy,
-        # so a fixed strength is not guaranteed to survive on every cover. Verify
-        # what we actually produced and escalate until it reads back.
+        # and how lossy depends entirely on the cover, so no fixed strength works
+        # everywhere. Verify what we actually produced and escalate until it both
+        # reads back and clears the JPEG floor we promise.
         attempts = []
-        out_full = None
-        used_strength = base_strength
-        canon = None
-        verified = False
+        best = None          # (image, canon, strength) that at least reads clean
+        chosen = None        # the first that also survives JPEG
         for factor in STRENGTH_LADDER:
-            used_strength = base_strength * factor
-            out_full, canon = self._render(img, frame, seed, method, Q, used_strength)
-            attempts.append(round(used_strength, 4))
-            if self._reads_back(out_full, seed, method, Q, used_strength, new_id.bytes):
-                verified = True
+            strength = base_strength * factor
+            rendered, canon = self._render(img, frame, seed, method, Q, strength)
+            attempts.append(round(strength, 4))
+            if not self._reads_back(rendered, seed, method, Q, strength, new_id.bytes):
+                continue
+            if best is None:
+                best = (rendered, canon, strength)
+            if self._survives_jpeg(rendered, seed, method, Q, strength, new_id.bytes):
+                chosen = (rendered, canon, strength)
                 break
 
-        if not verified:
+        if best is None:
             raise SelfVerifyError(key="error.robust_self_verify",
                                   detail=f"strengths tried: {attempts}")
+
+        # Fall back to the weakest strength that at least survives a lossless
+        # roundtrip. Never ship an unreadable image, but never claim a JPEG
+        # guarantee we did not actually verify either.
+        jpeg_verified = chosen is not None
+        out_full, canon, used_strength = chosen if jpeg_verified else best
 
         self.registry.add(new_id.hex, message, source_image=source_image,
                           output_image=output_image,
@@ -97,7 +122,9 @@ class RobustWatermarkLayer(Layer):
 
         info = {"id": new_id.hex, "method": method, "canon": canon,
                 "strength": used_strength, "attempts": len(attempts),
-                "self_verified": True}
+                "self_verified": True, "jpeg_verified": jpeg_verified}
+        if not jpeg_verified:
+            info["warning"] = "readable losslessly, but not verified against JPEG"
         return EmbedOutcome(image=out_full, info=info)
 
     def extract(self, image: Image.Image, config) -> Optional[LayerResult]:

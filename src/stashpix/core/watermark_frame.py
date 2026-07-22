@@ -56,6 +56,15 @@ def adaptive_strength_scale(ac_energy: float) -> float:
     watermark could not survive anyway. Above ``TEXTURE_FULL`` the scale keeps
     growing with texture (contrast masking), recovering the robustness that
     dropping Watson's per-coefficient self-masking term would otherwise cost.
+
+    KNOWN LIMIT: just above the gate the scale approaches 0, so the step becomes
+    tiny and the few percent of energy drift from the canonical resize round
+    trip moves it by ~100%. Those blocks are the tail of the step-drift
+    distribution (measured: median 5.75%, worst ~57%). Flooring the ramp at a
+    usable minimum would stabilise them, but it also raises the modulation
+    energy in near-flat blocks, which risks the visible 8x8 grid this gate
+    exists to prevent. Needs a PSNR + attack sweep before changing -- see the
+    follow-up note in the PR.
     """
     if ac_energy <= AC_GATE:
         return 0.0
