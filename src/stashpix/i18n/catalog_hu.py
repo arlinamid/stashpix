@@ -38,6 +38,16 @@ CATALOG = {
         "[Önjavító ellenőrzés] A mentés utáni dekódolás NEM egyezik az eredeti "
         "üzenettel — a kimeneti fájl nem megbízható."
     ),
+    "error.robust_self_verify": (
+        "[Önellenőrzés] A robusztus vízjel egyik erősségen sem olvasható vissza "
+        "erről a borítóképről ({detail}). A kép túl sima vagy túl kicsi hozzá — "
+        "használj nagyobb vagy texturáltabb borítót."
+    ),
+    "error.key_required": (
+        "[Kulcs] Kulcs megadása kötelező. Nélküle a payload egy fix konstansból "
+        "származna, és bárki kiolvashatná. Add meg a -k/--key kapcsolót (CLI), "
+        "vagy állítsd be a 'key' mezőt a configban."
+    ),
     "error.dependency_cv2": (
         "A geometriai szinkronhoz OpenCV kell: pip install opencv-python"
     ),
@@ -47,7 +57,6 @@ CATALOG = {
     # ------------------------------------------------------------- réteg-nevek
     "layer.lsb.name": "LSB (teljes üzenet, veszteségmentes)",
     "layer.robust.name": "robusztus ID + registry",
-    "layer.edge_match.name": "registry ujjlenyomat (él + pHash)",
     "layer.syncseal.name": "SyncSeal geometriai szinkron",
     "layer.wam.name": "WAM lokalizálás",
     "layer.visible.name": "látható vízjel",
@@ -73,7 +82,7 @@ CATALOG = {
     "cli.arg.key": "Kulcs/jelszó a szétszóráshoz (ugyanaz kell dekódoláshoz).",
     "cli.arg.nsym": "Reed-Solomon ECC bájt / 255 bájtos blokk (alap: 64).",
     "cli.arg.copies": "Redundáns LSB-másolatok száma (alap: 3).",
-    "cli.arg.strength": "JND vízjel-erősség (method=jnd).",
+    "cli.arg.strength": "Alap JND vízjel-erősség (method=jnd); a beágyazás szükség esetén emeli.",
     "cli.arg.method": "Vízjel módszer: jnd vagy qim (kiolvasásnál alap: auto).",
     "cli.arg.q": "Fix QIM-lépésköz (method=qim).",
     "cli.arg.visible_text": "Opcionális látható vízjel szövege (4. réteg).",

@@ -38,6 +38,16 @@ CATALOG = {
         "[Self-check] The post-save decode does not match the original message — "
         "the output file is not trustworthy."
     ),
+    "error.robust_self_verify": (
+        "[Self-check] The robust watermark did not read back from this cover at "
+        "any strength ({detail}). The image is too flat or too small to carry it; "
+        "use a larger or more textured cover."
+    ),
+    "error.key_required": (
+        "[Key] A key is required. Without one the payload would be derived from a "
+        "fixed constant and anyone could read it. Pass -k/--key (CLI) or set "
+        "'key' on the config."
+    ),
     "error.dependency_cv2": (
         "Geometric synchronization requires OpenCV: pip install opencv-python"
     ),
@@ -47,7 +57,6 @@ CATALOG = {
     # ------------------------------------------------------------- layer names
     "layer.lsb.name": "LSB (full message, lossless)",
     "layer.robust.name": "robust ID + registry",
-    "layer.edge_match.name": "registry fingerprint (edge + pHash)",
     "layer.syncseal.name": "SyncSeal geometric sync",
     "layer.wam.name": "WAM localization",
     "layer.visible.name": "visible watermark",
@@ -73,7 +82,7 @@ CATALOG = {
     "cli.arg.key": "Key/password for spreading (same key needed to decode).",
     "cli.arg.nsym": "Reed-Solomon ECC bytes per 255-byte block (default 64).",
     "cli.arg.copies": "Number of redundant LSB copies (default 3).",
-    "cli.arg.strength": "JND watermark strength (method=jnd).",
+    "cli.arg.strength": "Base JND watermark strength (method=jnd); embed raises it if needed.",
     "cli.arg.method": "Watermark method: jnd or qim (extract defaults to auto).",
     "cli.arg.q": "Fixed QIM step (method=qim).",
     "cli.arg.visible_text": "Optional visible watermark text (4th layer).",

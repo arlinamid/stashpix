@@ -9,34 +9,59 @@ from typing import List, Optional, Sequence, Tuple
 import numpy as np
 
 from .coding import hamming_encode_bits, hamming_decode_bits
-from .dct import dct2, idct2, qim_embed, qim_extract, block_slack, MIN_DELTA, DC0
+from .dct import (
+    dct2,
+    idct2,
+    qim_embed,
+    qim_extract,
+    qim_confidence,
+    luminance_slack,
+    CM_W,
+    MIN_DELTA,
+    DC0,
+)
 
 COEFS_MID = [(2, 1), (1, 2), (2, 2), (3, 2), (2, 3)]
 SYNC = 0xACED
 RAW_FRAME_BITS = 160                              # sync(16) + id(128) + crc(16)
 FRAME_BITS = ((RAW_FRAME_BITS + 3) // 4) * 7       # Hamming(7,4) on-wire length (280)
 AC_GATE = 8.0
-# Per-block JND scale ramps from 0 at AC_GATE to 1 at TEXTURE_FULL (flat sky → skip).
+# Per-block texture scale: 0 at AC_GATE (flat sky → skip), 1 at TEXTURE_FULL,
+# then grows with Watson's contrast-masking exponent up to MAX_SCALE.
 TEXTURE_FULL = 64.0
+MAX_SCALE = 4.0
 TileBounds = Optional[Tuple[int, int, int, int]]  # y0, x0, y1, x1 pixel coords
 
 
-def _block_ac_energy(coef: np.ndarray) -> float:
-    return float(np.sqrt(max(0.0, float((coef ** 2).sum() - coef[0, 0] ** 2))))
+def block_ac_energy(coef: np.ndarray,
+                    coefs: Sequence[Tuple[int, int]] = COEFS_MID) -> float:
+    """AC energy of an 8x8 block, EXCLUDING DC and the carrier coefficients.
+
+    Excluding the carriers is what makes the measure survive embedding: the
+    encoder sees the clean block, the decoder sees the watermarked one, and both
+    must derive the same QIM step. Since ``coefs`` are the only cells QIM
+    touches, leaving them out of the sum makes the two agree.
+    """
+    total = float((coef ** 2).sum()) - float(coef[0, 0]) ** 2
+    for cu, cv in coefs:
+        total -= float(coef[cu, cv]) ** 2
+    return float(np.sqrt(max(0.0, total)))
 
 
 def adaptive_strength_scale(ac_energy: float) -> float:
-    """Map block AC energy to a 0..1 JND strength multiplier (embed + extract).
+    """Map embed-invariant block AC energy to a JND strength multiplier.
 
-    Flat blocks (sky, smooth gradients) get scale 0 — no embed, no votes —
-    matching the extract AC gate and avoiding a visible 8×8 grid where the
-    watermark cannot help decoding anyway.
+    Flat blocks (sky, smooth gradients) get 0 — no embed, no votes — which both
+    matches the decoder's AC gate and avoids a visible 8x8 grid where the
+    watermark could not survive anyway. Above ``TEXTURE_FULL`` the scale keeps
+    growing with texture (contrast masking), recovering the robustness that
+    dropping Watson's per-coefficient self-masking term would otherwise cost.
     """
     if ac_energy <= AC_GATE:
         return 0.0
-    if ac_energy >= TEXTURE_FULL:
-        return 1.0
-    return (ac_energy - AC_GATE) / (TEXTURE_FULL - AC_GATE)
+    if ac_energy < TEXTURE_FULL:
+        return (ac_energy - AC_GATE) / (TEXTURE_FULL - AC_GATE)
+    return min(MAX_SCALE, (ac_energy / TEXTURE_FULL) ** CM_W)
 
 
 def int_to_bits_msb(v: int, n: int) -> List[int]:
@@ -100,14 +125,37 @@ def _block_index_map(num_blocks: int, seed, *, salt: str = "") -> Tuple[List[int
     return idx, wht
 
 
-def _coef_step(coef, slack, cu, cv, method, Q, strength, *,
-               ac_energy: float = TEXTURE_FULL, auto_adapt: bool = True) -> float:
-    if method == "jnd":
-        eff = strength
-        if auto_adapt:
-            eff *= adaptive_strength_scale(ac_energy)
-        return max(MIN_DELTA, eff * slack[cu, cv])
-    return Q
+def block_steps(coef: np.ndarray, method: str, Q: float, strength: float,
+                coefs: Sequence[Tuple[int, int]] = COEFS_MID):
+    """QIM step per carrier coefficient, plus the block's texture scale.
+
+    Every input is embed-invariant (DC + non-carrier AC energy), so the encoder
+    and the blind decoder derive identical steps from their respective images.
+    Returns ``(steps_by_coef, scale)``; ``scale == 0`` means "skip this block".
+    """
+    scale, t_lum = block_profile(coef, method, coefs)
+    if method != "jnd":
+        return {cc: Q for cc in coefs}, scale
+    if scale <= 0.0:
+        return {}, 0.0
+    eff = strength * scale
+    return {(cu, cv): max(MIN_DELTA, eff * t_lum[cu, cv]) for cu, cv in coefs}, scale
+
+
+def block_profile(coef: np.ndarray, method: str,
+                  coefs: Sequence[Tuple[int, int]] = COEFS_MID):
+    """Strength-independent part of the step computation.
+
+    Returns ``(scale, t_lum)``. ``scale == 0`` means "skip this block". Split out
+    from the strength so the decoder can sweep several candidate strengths over a
+    single DCT pass instead of redoing the transform for each.
+    """
+    if method != "jnd":
+        return 1.0, None
+    scale = adaptive_strength_scale(block_ac_energy(coef, coefs))
+    if scale <= 0.0:
+        return 0.0, None
+    return scale, luminance_slack(coef, DC0)
 
 
 def _block_in_tile(by: int, bx: int, tile: TileBounds) -> bool:
@@ -121,8 +169,7 @@ def _block_in_tile(by: int, bx: int, tile: TileBounds) -> bool:
 
 def embed_into_Y(Y, frame, seed, method, Q, strength, *,
                  coefs: Sequence[Tuple[int, int]] = COEFS_MID,
-                 tile: TileBounds = None, salt: str = "",
-                 auto_adapt: bool = True) -> np.ndarray:
+                 tile: TileBounds = None, salt: str = "") -> np.ndarray:
     h, w = Y.shape
     bh, bw = h // 8, w // 8
     blocks = [(by, bx) for by in range(bh) for bx in range(bw)
@@ -132,46 +179,69 @@ def embed_into_Y(Y, frame, seed, method, Q, strength, *,
     for n, (by, bx) in enumerate(blocks):
         block = out[by * 8:by * 8 + 8, bx * 8:bx * 8 + 8]
         coef = dct2(block)
-        ac_energy = _block_ac_energy(coef)
-        if auto_adapt and adaptive_strength_scale(ac_energy) <= 0.0:
+        steps, scale = block_steps(coef, method, Q, strength, coefs)
+        if scale <= 0.0:
             continue
-        slack = block_slack(coef, DC0) if method == "jnd" else None
         bit = frame[idx_map[n]] ^ wht_map[n]
         for cu, cv in coefs:
-            step = _coef_step(coef, slack, cu, cv, method, Q, strength,
-                               ac_energy=ac_energy, auto_adapt=auto_adapt)
-            coef[cu, cv] = qim_embed(coef[cu, cv], bit, step)
+            coef[cu, cv] = qim_embed(coef[cu, cv], bit, steps[(cu, cv)])
         out[by * 8:by * 8 + 8, bx * 8:bx * 8 + 8] = idct2(coef)
     return out
 
 
-def extract_from_Y(Y, seed, method, Q, strength, *,
-                     coefs: Sequence[Tuple[int, int]] = COEFS_MID,
-                     tile: TileBounds = None, salt: str = "",
-                     auto_adapt: bool = True) -> List[int]:
+def extract_frames_from_Y(Y, seed, method, Q, strengths: Sequence[float], *,
+                          coefs: Sequence[Tuple[int, int]] = COEFS_MID,
+                          tile: TileBounds = None,
+                          salt: str = "") -> List[List[int]]:
+    """Blind frame read for several candidate strengths in one DCT pass.
+
+    Each carrier coefficient contributes a vote weighted by how cleanly it sits
+    on the QIM lattice, so a block degraded by JPEG or resampling dilutes its own
+    vote instead of outvoting an intact block.
+
+    The encoder may have escalated its strength to make the mark survive (see
+    ``layers.robust``), and the step scales linearly with it, so the decoder has
+    to try each candidate. Only the cheap per-strength arithmetic is repeated --
+    the transform and the perceptual profile are computed once per block.
+    """
     h, w = Y.shape
     bh, bw = h // 8, w // 8
     blocks = [(by, bx) for by in range(bh) for bx in range(bw)
               if _block_in_tile(by, bx, tile)]
     idx_map, wht_map = _block_index_map(len(blocks), seed, salt=salt)
-    votes0 = [0.0] * FRAME_BITS
-    votes1 = [0.0] * FRAME_BITS
+    votes0 = [[0.0] * FRAME_BITS for _ in strengths]
+    votes1 = [[0.0] * FRAME_BITS for _ in strengths]
+
     for n, (by, bx) in enumerate(blocks):
-        block = Y[by * 8:by * 8 + 8, bx * 8:bx * 8 + 8]
-        coef = dct2(block)
-        ac_energy = _block_ac_energy(coef)
-        if ac_energy <= AC_GATE:
+        coef = dct2(Y[by * 8:by * 8 + 8, bx * 8:bx * 8 + 8])
+        scale, t_lum = block_profile(coef, method, coefs)
+        if scale <= 0.0:
             continue
-        slack = block_slack(coef, DC0) if method == "jnd" else None
-        for cu, cv in coefs:
-            step = _coef_step(coef, slack, cu, cv, method, Q, strength,
-                               ac_energy=ac_energy, auto_adapt=auto_adapt)
-            bit = qim_extract(coef[cu, cv], step) ^ wht_map[n]
-            if bit:
-                votes1[idx_map[n]] += 1.0
-            else:
-                votes0[idx_map[n]] += 1.0
-    return [1 if votes1[i] > votes0[i] else 0 for i in range(FRAME_BITS)]
+        target = idx_map[n]
+        whiten = wht_map[n]
+        for si, strength in enumerate(strengths):
+            eff = strength * scale
+            for cu, cv in coefs:
+                step = Q if method != "jnd" else max(MIN_DELTA, eff * t_lum[cu, cv])
+                c = coef[cu, cv]
+                weight = qim_confidence(c, step)
+                if weight <= 0.0:
+                    continue
+                if qim_extract(c, step) ^ whiten:
+                    votes1[si][target] += weight
+                else:
+                    votes0[si][target] += weight
+
+    return [[1 if votes1[si][i] > votes0[si][i] else 0 for i in range(FRAME_BITS)]
+            for si in range(len(strengths))]
+
+
+def extract_from_Y(Y, seed, method, Q, strength, *,
+                     coefs: Sequence[Tuple[int, int]] = COEFS_MID,
+                     tile: TileBounds = None, salt: str = "") -> List[int]:
+    """Single-strength blind frame read."""
+    return extract_frames_from_Y(Y, seed, method, Q, [strength],
+                                 coefs=coefs, tile=tile, salt=salt)[0]
 
 
 def merge_frame_votes(frames: Sequence[List[int]]) -> List[int]:
@@ -195,7 +265,12 @@ __all__ = [
     "FRAME_BITS",
     "AC_GATE",
     "TEXTURE_FULL",
+    "MAX_SCALE",
     "adaptive_strength_scale",
+    "block_ac_energy",
+    "block_profile",
+    "block_steps",
+    "extract_frames_from_Y",
     "build_frame",
     "parse_frame",
     "frame_from_id_hex",

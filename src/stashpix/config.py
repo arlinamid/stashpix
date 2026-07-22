@@ -43,7 +43,6 @@ class EmbedConfig:
     robust_method: str = DEFAULT_METHOD
     robust_strength: float = DEFAULT_STRENGTH
     robust_q: float = DEFAULT_Q
-    robust_auto_adapt: bool = True   # per-block AC-energy JND scale (flat → skip)
 
     # Visible watermark (4th layer, optional)
     visible_text: Optional[str] = None
@@ -63,18 +62,9 @@ class ExtractConfig:
     robust_method: Optional[str] = None   # None = auto (jnd -> qim)
     robust_strength: float = DEFAULT_STRENGTH
     robust_q: float = DEFAULT_Q
-    robust_auto_adapt: bool = True
     reference_path: Optional[str] = None   # for geometric (SIFT) sync
     blind_geo: bool = True                 # reference-free deskew/crop fallback
     morph_geo: bool = True                 # SIFT+TPS fallback for non-linear morphs
-
-    # Registry fingerprint fallback (blur when robust DCT bits are lost)
-    edge_match: bool = True
-    edge_match_max_dist: int = 18
-    edge_match_min_gap: int = 4
-    edge_match_relaxed: bool = True
-    edge_match_relaxed_max_dist: int = 64
-    edge_match_relaxed_min_gap: int = 8
 
     # Optional AI extract helpers (default off)
     try_wam: bool = False

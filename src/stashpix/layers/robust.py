@@ -10,18 +10,24 @@ from PIL import Image
 
 from ..core.base import Layer, EmbedOutcome, LayerResult
 from ..core.imaging import canonical_size
-from ..core.keys import derive_seed, embed_key_tag
+from ..core.keys import derive_seed
 from ..core.watermark_frame import (
     COEFS_MID,
     FRAME_BITS,
     build_frame,
     embed_into_Y,
+    extract_frames_from_Y,
     extract_from_Y,
     parse_frame,
 )
+from ..exceptions import SelfVerifyError
 from ..registry import Registry
 
 CANON_WIDTH = 512
+# Embed-time self-verification: if the freshly written image does not read back,
+# retry at a higher strength instead of silently shipping an unreadable mark.
+STRENGTH_LADDER = (1.0, 1.35, 1.8, 2.4, 3.2)
+MAX_EMBED_ATTEMPTS = len(STRENGTH_LADDER)
 
 
 class RobustWatermarkLayer(Layer):
@@ -32,34 +38,66 @@ class RobustWatermarkLayer(Layer):
     def __init__(self, registry: Optional[Registry] = None):
         self.registry = registry or Registry()
 
-    def embed(self, image: Image.Image, message: str, config,
-              *, source_image: str = "", output_image: str = "") -> EmbedOutcome:
-        method = config.robust_method or "jnd"
-        Q = config.robust_q
-        strength = config.robust_strength
-
-        img = image.convert("RGB")
+    def _render(self, img: Image.Image, frame, seed, method, Q, strength):
+        """Write ``frame`` into the image at the canonical scale, full size out."""
         ow, oh = img.size
         cw, ch = canonical_size(ow, oh, CANON_WIDTH)
         work = img.resize((cw, ch), Image.LANCZOS)
         Y, Cb, Cr = [np.array(c, dtype=np.float64) for c in work.convert("YCbCr").split()]
+        Y2 = np.clip(embed_into_Y(Y, frame, seed, method, Q, strength, coefs=COEFS_MID),
+                     0, 255)
+        merged = Image.merge("YCbCr", [Image.fromarray(np.uint8(np.round(c)), "L")
+                                       for c in (Y2, Cb, Cr)]).convert("RGB")
+        return merged.resize((ow, oh), Image.LANCZOS), (cw, ch)
 
+    def _reads_back(self, image: Image.Image, seed, method, Q, strength,
+                    expect: bytes) -> bool:
+        """Run the real blind decoder over the rendered image."""
+        w, h = image.size
+        cw, ch = canonical_size(w, h, CANON_WIDTH)
+        work = image.resize((cw, ch), Image.LANCZOS)
+        Y = np.array(work.convert("YCbCr").split()[0], dtype=np.float64)
+        frame = extract_from_Y(Y, seed, method, Q, strength, coefs=COEFS_MID)
+        return parse_frame(frame) == expect
+
+    def embed(self, image: Image.Image, message: str, config,
+              *, source_image: str = "", output_image: str = "") -> EmbedOutcome:
+        method = config.robust_method or "jnd"
+        Q = config.robust_q
+        base_strength = config.robust_strength
+
+        img = image.convert("RGB")
         new_id = uuid.uuid4()
         frame = build_frame(new_id.bytes)
         seed = derive_seed(config.key)
 
-        Y2 = np.clip(embed_into_Y(Y, frame, seed, method, Q, strength, coefs=COEFS_MID,
-                                   auto_adapt=config.robust_auto_adapt),
-                     0, 255)
-        merged = Image.merge("YCbCr", [Image.fromarray(np.uint8(np.round(c)), "L")
-                                       for c in (Y2, Cb, Cr)]).convert("RGB")
-        out_full = merged.resize((ow, oh), Image.LANCZOS)
+        # The canonical-scale resize round trip and 8-bit quantization are lossy,
+        # so a fixed strength is not guaranteed to survive on every cover. Verify
+        # what we actually produced and escalate until it reads back.
+        attempts = []
+        out_full = None
+        used_strength = base_strength
+        canon = None
+        verified = False
+        for factor in STRENGTH_LADDER:
+            used_strength = base_strength * factor
+            out_full, canon = self._render(img, frame, seed, method, Q, used_strength)
+            attempts.append(round(used_strength, 4))
+            if self._reads_back(out_full, seed, method, Q, used_strength, new_id.bytes):
+                verified = True
+                break
+
+        if not verified:
+            raise SelfVerifyError(key="error.robust_self_verify",
+                                  detail=f"strengths tried: {attempts}")
 
         self.registry.add(new_id.hex, message, source_image=source_image,
                           output_image=output_image,
-                          meta={"key_tag": embed_key_tag(config.key)})
+                          meta={"strength": used_strength})
 
-        info = {"id": new_id.hex, "method": method, "canon": (cw, ch)}
+        info = {"id": new_id.hex, "method": method, "canon": canon,
+                "strength": used_strength, "attempts": len(attempts),
+                "self_verified": True}
         return EmbedOutcome(image=out_full, info=info)
 
     def extract(self, image: Image.Image, config) -> Optional[LayerResult]:
@@ -72,14 +110,24 @@ class RobustWatermarkLayer(Layer):
 
         method = getattr(config, "robust_method", None)
         trials = [method] if method else ["jnd", "qim"]
+        base = config.robust_strength
+
         id_bytes = None
         used_method = None
+        used_strength = None
         for m in trials:
-            frame = extract_from_Y(Y, seed, m, config.robust_q, config.robust_strength,
-                                   coefs=COEFS_MID, auto_adapt=config.robust_auto_adapt)
-            id_bytes = parse_frame(frame)
+            # Fixed-Q ignores strength entirely, so it has no ladder to sweep.
+            candidates = [base * f for f in STRENGTH_LADDER] if m == "jnd" else [base]
+            frames = extract_frames_from_Y(Y, seed, m, config.robust_q, candidates,
+                                           coefs=COEFS_MID)
+            for strength, frame in zip(candidates, frames):
+                # 16-bit sync + 16-bit CRC gate every candidate, so sweeping the
+                # ladder buys recall without costing precision.
+                parsed = parse_frame(frame)
+                if parsed is not None:
+                    id_bytes, used_method, used_strength = parsed, m, strength
+                    break
             if id_bytes is not None:
-                used_method = m
                 break
 
         if id_bytes is None:
@@ -87,7 +135,8 @@ class RobustWatermarkLayer(Layer):
 
         id_hex = uuid.UUID(bytes=id_bytes).hex
         entry = self.registry.get(id_hex)
-        info = {"id": id_hex, "method": used_method, "in_registry": entry is not None}
+        info = {"id": id_hex, "method": used_method, "strength": used_strength,
+                "in_registry": entry is not None}
         message = entry["message"] if entry else None
         if entry:
             info["entry"] = entry

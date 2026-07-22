@@ -64,20 +64,48 @@ def qim_extract(c: float, step: float) -> int:
     return int(round(c / step)) % 2
 
 
-def block_slack(coef: np.ndarray, dc_mean: float = DC0) -> np.ndarray:
-    """Per-coefficient Watson JND (just-noticeable difference) for an 8x8 block.
+def qim_confidence(c: float, step: float) -> float:
+    """How trustworthy is ``qim_extract(c, step)``? 1.0 = dead on a lattice
+    point, 0.0 = exactly halfway between two, i.e. a coin flip.
+
+    Lets the frame decoder weight each block's vote by its reliability instead
+    of counting a marginal read the same as a clean one.
+    """
+    k = c / step
+    return max(0.0, 1.0 - 2.0 * abs(k - round(k)))
+
+
+def luminance_slack(coef: np.ndarray, dc_mean: float = DC0) -> np.ndarray:
+    """Watson JND from frequency sensitivity + luminance masking only.
 
       1) frequency sensitivity: WATSON_T (fixed table)
       2) luminance masking: brighter block -> more slack (DC-proportional)
-      3) contrast masking: an already energetic coefficient tolerates more
 
-    The decoder recomputes this from the received image, so the QIM step matches
-    on embed and read (blind detection).
+    Deliberately OMITS Watson's contrast (self-)masking term. Self-masking scales
+    the threshold by the coefficient's own magnitude -- but QIM *changes* that
+    magnitude, so a blind decoder recomputing it from the received image derives
+    a different step than the encoder used. Measured on real covers, that made
+    the embed/extract steps differ by 25% at the median and >50% for 29% of
+    coefficients, which flips the parity decision outright.
+
+    Only the DC drives the result here, and the embedder never touches DC, so
+    encoder and decoder agree. Texture adaptation is applied per block instead,
+    from AC energy measured over coefficients the embedder leaves alone -- see
+    ``watermark_frame.block_ac_energy``.
     """
     dc = abs(coef[0, 0])
-    t_lum = WATSON_T * (max(dc, 1.0) / dc_mean) ** LUM_EXP
-    slack = np.maximum(t_lum, (np.abs(coef) ** CM_W) * (t_lum ** (1.0 - CM_W)))
-    return slack
+    return WATSON_T * (max(dc, 1.0) / dc_mean) ** LUM_EXP
+
+
+def block_slack(coef: np.ndarray, dc_mean: float = DC0) -> np.ndarray:
+    """Full Watson JND including contrast masking.
+
+    Perceptual-analysis utility only. NOT usable as a blind QIM step: the
+    contrast term depends on the coefficient being modulated. Use
+    ``luminance_slack`` for anything the decoder has to reproduce.
+    """
+    t_lum = luminance_slack(coef, dc_mean)
+    return np.maximum(t_lum, (np.abs(coef) ** CM_W) * (t_lum ** (1.0 - CM_W)))
 
 
 __all__ = [
@@ -90,5 +118,7 @@ __all__ = [
     "idct2",
     "qim_embed",
     "qim_extract",
+    "qim_confidence",
+    "luminance_slack",
     "block_slack",
 ]
