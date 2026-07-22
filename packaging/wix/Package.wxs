@@ -5,8 +5,8 @@
   Build (after PyInstaller produced dist/stashpix):
     wix build packaging/wix/Package.wxs ^
       -d StageDir=dist\\stashpix ^
-      -d Version=1.3.0 ^
-      -o packaging\out\stashpix-1.3.0.msi
+      -d Version=1.4.0 ^
+      -o packaging\out\stashpix-1.4.0.msi
 
   Keep UpgradeCode STABLE across releases so upgrades replace the old version.
 -->

@@ -59,6 +59,8 @@ def _build_parser() -> argparse.ArgumentParser:
     e.add_argument("--visible-text", default=None, help=t("cli.arg.visible_text"))
     e.add_argument("--visible-opacity", type=float, default=DEFAULT_VISIBLE_OPACITY,
                    help=t("cli.arg.visible_opacity"))
+    e.add_argument("--wam", action="store_true", help=t("cli.arg.wam"))
+    e.add_argument("--syncseal", action="store_true", help=t("cli.arg.syncseal"))
     e.set_defaults(func=_cmd_embed)
 
     x = sub.add_parser("extract", help=t("cli.extract.help"))
@@ -69,6 +71,8 @@ def _build_parser() -> argparse.ArgumentParser:
     x.add_argument("-Q", type=float, default=DEFAULT_Q, help=t("cli.arg.q"))
     x.add_argument("--output-file", default=None, help=t("cli.arg.output_file"))
     x.add_argument("--show-info", action="store_true", help=t("cli.arg.show_info"))
+    x.add_argument("--try-wam", action="store_true", help=t("cli.arg.try_wam"))
+    x.add_argument("--try-syncseal", action="store_true", help=t("cli.arg.try_syncseal"))
     x.set_defaults(func=_cmd_extract)
 
     gg = sub.add_parser("extract-geo", help=t("cli.extract.help"))
@@ -78,6 +82,8 @@ def _build_parser() -> argparse.ArgumentParser:
     gg.add_argument("--method", choices=["jnd", "qim"], default=None, help=t("cli.arg.method"))
     gg.add_argument("--strength", type=float, default=DEFAULT_STRENGTH, help=t("cli.arg.strength"))
     gg.add_argument("--show-info", action="store_true", help=t("cli.arg.show_info"))
+    gg.add_argument("--try-wam", action="store_true", help=t("cli.arg.try_wam"))
+    gg.add_argument("--try-syncseal", action="store_true", help=t("cli.arg.try_syncseal"))
     gg.set_defaults(func=_cmd_extract_geo)
 
     v = sub.add_parser("verify-visible", help=t("cli.verify_visible.help"))
@@ -121,6 +127,7 @@ def _cmd_embed(args) -> int:
         key=args.key, lsb_nsym=args.nsym, lsb_copies=args.copies,
         robust_method=args.method, robust_strength=args.strength, robust_q=args.Q,
         visible_text=args.visible_text, visible_opacity=args.visible_opacity,
+        enable_wam=args.wam, enable_syncseal=args.syncseal,
     )
     result = engine.embed_file(args.image, message, args.output, config)
     print(t("cli.embed.done", path=result.output_path))
@@ -129,13 +136,18 @@ def _cmd_embed(args) -> int:
     print(t("cli.embed.lsb", nsym=args.nsym, copies=args.copies))
     if args.visible_text:
         print(t("cli.embed.visible", text=args.visible_text, opacity=args.visible_opacity))
+    if args.wam:
+        print(t("cli.embed.wam"))
+    if args.syncseal:
+        print(t("cli.embed.syncseal"))
     return 0
 
 
 def _cmd_extract(args) -> int:
     engine = StegoEngine()
     config = ExtractConfig(key=args.key, robust_method=args.method,
-                           robust_strength=args.strength, robust_q=args.Q)
+                           robust_strength=args.strength, robust_q=args.Q,
+                           try_wam=args.try_wam, try_syncseal=args.try_syncseal)
     message, info = engine.extract_file(args.image, config)
     return _emit_extract(args, message, info)
 
@@ -143,7 +155,8 @@ def _cmd_extract(args) -> int:
 def _cmd_extract_geo(args) -> int:
     engine = StegoEngine()
     config = ExtractConfig(key=args.key, robust_method=args.method,
-                           robust_strength=args.strength)
+                           robust_strength=args.strength,
+                           try_wam=args.try_wam, try_syncseal=args.try_syncseal)
     message, info = engine.extract_geo_file(args.image, args.reference, config)
     return _emit_extract(args, message, info)
 

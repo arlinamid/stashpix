@@ -10,5 +10,8 @@ cryptography>=41.0
 #     pip install opencv-contrib-python
 #   REST API backend:
 #     pip install fastapi "uvicorn[standard]" python-multipart
+#   Optional AI (SyncSeal + WAM), CPU torch recommended:
+#     pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+#     pip install -e ".[ai]"
 #   Tests:
 #     pip install pytest

@@ -1,23 +1,22 @@
 """StegoEngine — orchestrates all layers into one pipeline with graceful degradation.
 
-Embed order: visible watermark -> robust DCT watermark -> LSB (the visible/robust
-output becomes the cover for the LSB, so the invisible layers don't interfere).
+Embed order: visible -> robust DCT -> optional WAM -> optional SyncSeal -> LSB.
 
-Extract order: LSB (full message, lossless) -> robust ID + registry (survives
-JPEG/resize). Optionally geometric (SIFT) re-sync for images placed into another
-image and/or partially occluded.
+Extract order: LSB -> optional WAM ROI -> optional SyncSeal unwarp -> robust ID
++ registry -> blind/SIFT geo fallbacks.
 """
 
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Dict, Optional, Tuple
 
 from PIL import Image
 
 from .config import EmbedConfig, ExtractConfig, VerifyConfig
 from .core.imaging import open_rgb, assert_lossless, save_lossless
+from .core.keys import embed_key_tag
 from .exceptions import StegoError
 from .i18n import t
 from .layers import (
@@ -25,7 +24,10 @@ from .layers import (
     RobustWatermarkLayer,
     VisibleWatermarkLayer,
     GeometricSynchronizer,
+    SyncSealLayer,
+    WamLocalLayer,
 )
+from .layers.wam_local import bits_to_hex, id_hex_to_bits
 from .registry import Registry
 
 
@@ -43,6 +45,8 @@ class StegoEngine:
         self.registry = registry or Registry()
         self.visible = VisibleWatermarkLayer()
         self.robust = RobustWatermarkLayer(self.registry)
+        self.wam = WamLocalLayer()
+        self.syncseal = SyncSealLayer()
         self.lsb = LsbLayer()
         self.geometry = GeometricSynchronizer()
 
@@ -70,6 +74,27 @@ class StegoEngine:
             info["robust"] = outcome.info
             info["robust_id"] = outcome.info.get("id")
             info["layers"].append("robust")
+
+        if getattr(config, "enable_wam", False):
+            if not info.get("robust_id"):
+                info["wam_skipped"] = "requires robust_id"
+            else:
+                outcome = self.wam.embed(img, message, config, id_hex=info["robust_id"])
+                img = outcome.image
+                info["wam"] = outcome.info
+                if not outcome.info.get("skipped"):
+                    info["layers"].append("wam")
+                else:
+                    info["wam_skipped"] = outcome.info.get("reason")
+
+        if getattr(config, "enable_syncseal", False):
+            outcome = self.syncseal.embed(img, message, config)
+            img = outcome.image
+            info["syncseal"] = outcome.info
+            if not outcome.info.get("skipped"):
+                info["layers"].append("syncseal")
+            else:
+                info["syncseal_skipped"] = outcome.info.get("reason")
 
         if config.enable_lsb:
             outcome = self.lsb.embed(img, message, config)
@@ -123,14 +148,50 @@ class StegoEngine:
         except StegoError as e:
             info["lsb_failed"] = str(e)
 
+        work = img
+        # Optional WAM localize → ROI for subsequent layers
+        if getattr(config, "try_wam", False):
+            crop, wam_info = self.wam.localize(work, config)
+            info["wam"] = {k: v for k, v in wam_info.items() if k != "image"}
+            if crop is not None and not wam_info.get("skipped"):
+                work = crop
+                fp = wam_info.get("fingerprint")
+                if fp:
+                    info["wam_fingerprint"] = fp
+                    ranked = self._registry_ids_matching_fingerprint(fp)
+                    if ranked:
+                        info["wam_shortlist"] = ranked
+            elif wam_info.get("skipped"):
+                info["wam_skipped"] = wam_info.get("reason")
+
+        # Optional SyncSeal unwarp before robust read
+        if getattr(config, "try_syncseal", False):
+            unwarped, sync_info = self.syncseal.unwarp(work, config)
+            info["syncseal"] = sync_info
+            if unwarped is not None and not sync_info.get("skipped"):
+                work = unwarped
+            elif sync_info.get("skipped"):
+                info["syncseal_skipped"] = sync_info.get("reason")
+
         # 2) Robust ID -> registry (survives JPEG/resize)
-        result = self.robust.extract(img, config)
+        result = self.robust.extract(work, config)
         if result is not None:
             info["robust_info"] = result.info
             info["robust_id"] = result.info.get("id")
             if result.message is not None:
                 info["layer"] = t("layer.robust.name")
                 info["layer_key"] = "robust"
+                return result.message, info
+
+        # If AI path changed the working image, also try original full frame
+        if work is not img:
+            result = self.robust.extract(img, config)
+            if result is not None and result.message is not None:
+                info["robust_info"] = result.info
+                info["robust_id"] = result.info.get("id")
+                info["layer"] = t("layer.robust.name")
+                info["layer_key"] = "robust"
+                info["ai_fallback"] = "full_frame"
                 return result.message, info
 
         # 3) Reference-free geometric recovery
@@ -146,7 +207,19 @@ class StegoEngine:
             if msg is not None:
                 return msg, info
 
+        msg = self._edge_match_extract(img, config, info)
+        if msg is not None:
+            return msg, info
+
         return None, info
+
+    def _registry_ids_matching_fingerprint(self, fingerprint_hex: str) -> list:
+        """Return registry IDs whose WAM fingerprint matches ``fingerprint_hex``."""
+        hits = []
+        for id_hex in self.registry.all().keys():
+            if bits_to_hex(id_hex_to_bits(id_hex)) == fingerprint_hex:
+                hits.append(id_hex)
+        return hits
 
     def _registry_geo_extract(self, img: Image.Image, config: ExtractConfig,
                               info: Dict[str, Any]) -> Optional[str]:
@@ -202,6 +275,45 @@ class StegoEngine:
                             "phash_shortlist": len(candidate_ids), "best": best}
         return None
 
+    def _edge_match_extract(self, img: Image.Image, config: ExtractConfig,
+                            info: Dict[str, Any]) -> Optional[str]:
+        if not getattr(config, "edge_match", True):
+            return None
+        strict = self.registry.resolve_fingerprint(
+            img,
+            max_dist=getattr(config, "edge_match_max_dist", 18),
+            min_gap=getattr(config, "edge_match_min_gap", 4),
+        )
+        relaxed = None
+        if strict is None and getattr(config, "edge_match_relaxed", True):
+            relaxed = self.registry.resolve_fingerprint(
+                img,
+                max_dist=getattr(config, "edge_match_relaxed_max_dist", 64),
+                min_gap=getattr(config, "edge_match_relaxed_min_gap", 8),
+            )
+        resolved = strict or relaxed
+        if resolved is None:
+            return None
+        id_hex, dist = resolved
+        entry = self.registry.get(id_hex)
+        meta = (entry or {}).get("meta") or {}
+        stored_tag = meta.get("key_tag")
+        if stored_tag is None:
+            return None
+        if embed_key_tag(config.key) != stored_tag:
+            return None
+        message = self.registry.message_for(id_hex)
+        if message is None:
+            return None
+        info["layer"] = t("layer.edge_match.name")
+        info["layer_key"] = "edge_match"
+        info["robust_id"] = id_hex
+        info["edge_match"] = {
+            "distance": dist,
+            "mode": "strict" if strict is not None else "relaxed",
+        }
+        return message
+
     def _blind_extract(self, img: Image.Image, config: ExtractConfig,
                        info: Dict[str, Any]) -> Optional[str]:
         try:
@@ -237,7 +349,8 @@ class StegoEngine:
         config = config or ExtractConfig()
         recv = recv.convert("RGB")
 
-        msg, info = self.extract(recv, config)
+        pre_geo = replace(config, edge_match=False)
+        msg, info = self.extract(recv, pre_geo)
         info.setdefault("geo", {})["used"] = False
         if msg is not None:
             return msg, info
@@ -254,12 +367,18 @@ class StegoEngine:
                 return result.message, info
 
         if not getattr(config, "morph_geo", True):
+            msg = self._edge_match_extract(recv, config, info)
+            if msg is not None:
+                return msg, info
             return None, info
 
         warped_tps, stat_tps = self.geometry.warp_tps_to_reference(
             recv, ref.convert("RGB"))
         info["geo_tps"] = {"used": True, "registered": warped_tps is not None, **stat_tps}
         if warped_tps is None:
+            msg = self._edge_match_extract(recv, config, info)
+            if msg is not None:
+                return msg, info
             return None, info
 
         result = self.robust.extract(warped_tps, config)
@@ -269,6 +388,9 @@ class StegoEngine:
             info["robust_info"] = result.info
             info["robust_id"] = result.info.get("id")
             return result.message, info
+        msg = self._edge_match_extract(recv, config, info)
+        if msg is not None:
+            return msg, info
         return None, info
 
     def extract_geo_file(self, image_path: str, reference_path: str,

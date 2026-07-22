@@ -10,7 +10,7 @@ from PIL import Image
 
 from ..core.base import Layer, EmbedOutcome, LayerResult
 from ..core.imaging import canonical_size
-from ..core.keys import derive_seed
+from ..core.keys import derive_seed, embed_key_tag
 from ..core.watermark_frame import (
     COEFS_MID,
     FRAME_BITS,
@@ -48,14 +48,16 @@ class RobustWatermarkLayer(Layer):
         frame = build_frame(new_id.bytes)
         seed = derive_seed(config.key)
 
-        Y2 = np.clip(embed_into_Y(Y, frame, seed, method, Q, strength, coefs=COEFS_MID),
+        Y2 = np.clip(embed_into_Y(Y, frame, seed, method, Q, strength, coefs=COEFS_MID,
+                                   auto_adapt=config.robust_auto_adapt),
                      0, 255)
         merged = Image.merge("YCbCr", [Image.fromarray(np.uint8(np.round(c)), "L")
                                        for c in (Y2, Cb, Cr)]).convert("RGB")
         out_full = merged.resize((ow, oh), Image.LANCZOS)
 
         self.registry.add(new_id.hex, message, source_image=source_image,
-                          output_image=output_image)
+                          output_image=output_image,
+                          meta={"key_tag": embed_key_tag(config.key)})
 
         info = {"id": new_id.hex, "method": method, "canon": (cw, ch)}
         return EmbedOutcome(image=out_full, info=info)
@@ -74,7 +76,7 @@ class RobustWatermarkLayer(Layer):
         used_method = None
         for m in trials:
             frame = extract_from_Y(Y, seed, m, config.robust_q, config.robust_strength,
-                                   coefs=COEFS_MID)
+                                   coefs=COEFS_MID, auto_adapt=config.robust_auto_adapt)
             id_bytes = parse_frame(frame)
             if id_bytes is not None:
                 used_method = m

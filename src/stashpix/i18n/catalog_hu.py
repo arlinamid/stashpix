@@ -47,6 +47,9 @@ CATALOG = {
     # ------------------------------------------------------------- réteg-nevek
     "layer.lsb.name": "LSB (teljes üzenet, veszteségmentes)",
     "layer.robust.name": "robusztus ID + registry",
+    "layer.edge_match.name": "registry ujjlenyomat (él + pHash)",
+    "layer.syncseal.name": "SyncSeal geometriai szinkron",
+    "layer.wam.name": "WAM lokalizálás",
     "layer.visible.name": "látható vízjel",
     "layer.geo_tps.name": "morph szinkron (SIFT + TPS + flow) + registry",
     "layer.none": "egyik réteg sem adott vissza üzenetet",
@@ -75,6 +78,10 @@ CATALOG = {
     "cli.arg.q": "Fix QIM-lépésköz (method=qim).",
     "cli.arg.visible_text": "Opcionális látható vízjel szövege (4. réteg).",
     "cli.arg.visible_opacity": "Látható vízjel átlátszatlansága (0..1).",
+    "cli.arg.wam": "Opcionális WAM lokalizáló ujjlenyomat (első használatkor letölti a modellt).",
+    "cli.arg.syncseal": "Opcionális SyncSeal geometriai sync vízjel (első használatkor letölti a modellt).",
+    "cli.arg.try_wam": "WAM ROI lokalizálás a robust kiolvasás előtt.",
+    "cli.arg.try_syncseal": "SyncSeal visszaigazítás a robust kiolvasás előtt.",
     "cli.arg.reference": "Regisztrált (enkódolt) referencia-kép a geo-szinkronhoz.",
     "cli.arg.output_file": "Ide írja a kiolvasott üzenetet (alap: stdout).",
     "cli.arg.show_info": "Diagnosztikai infó kiírása.",
@@ -84,6 +91,8 @@ CATALOG = {
     "cli.embed.robust_id": "  - robusztus réteg ID: {id} (method={method})",
     "cli.embed.lsb": "  - LSB réteg: nsym={nsym}, copies={copies}",
     "cli.embed.visible": "  - látható vízjel: {text!r} (opacity={opacity})",
+    "cli.embed.wam": "  - WAM lokalizáló ujjlenyomat bekapcsolva",
+    "cli.embed.syncseal": "  - SyncSeal geometriai sync bekapcsolva",
     "cli.extract.header": "--- Kiolvasott üzenet ---",
     "cli.extract.lsb": "[LSB réteg] Üzenet visszanyerve: {message!r}",
     "cli.extract.robust": "[Robusztus réteg] LSB elveszett; ID={id} -> registry -> {message!r}",
@@ -135,12 +144,18 @@ CATALOG = {
     "gui.self_verify": "Önjavító ellenőrzés",
     "gui.strength": "Vízjel erősség:",
     "gui.visible_text": "Látható vízjel (opcionális):",
+    "gui.enable_wam": "WAM lokalizáló ujjlenyomat (opcionális AI, első használatkor letölt)",
+    "gui.enable_syncseal": "SyncSeal geometriai sync (opcionális AI, első használatkor letölt)",
+    "gui.try_wam": "WAM ROI lokalizálás",
+    "gui.try_syncseal": "SyncSeal visszaigazítás",
     "gui.encode_hint": (
         "Mindkét láthatatlan réteg beágyazódik. LSB (nsym/copies) = teljes üzenet, "
         "crop/átfestés-tűrő. Robusztus DCT-vízjel = ID a registryhez, JPEG/resize-tűrő. "
         "Az erősség JND-egységben mért (perceptuálisan adaptív): ~1 a láthatóság határa, "
         "nagyobb = robusztusabb + láthatóbb. A 'Látható vízjel' mező kitöltve egy emberi "
-        "szemmel is látható, átlós bélyegzőt is rárak (4. réteg)."
+        "szemmel is látható, átlós bélyegzőt is rárak (4. réteg). "
+        "Az opcionális WAM / SyncSeal PyTorchot és első használatkor modell-letöltést "
+        "igényel (~480 MB); CPU elég. Hagyd kikapcsolva a könnyű, láthatatlan embedhez."
     ),
     "gui.message": "Rejtendő üzenet:",
     "gui.encode_btn": "Üzenet elrejtése",
@@ -155,8 +170,8 @@ CATALOG = {
     "gui.visible_expected": "Várt szöveg:",
     "gui.verify_btn": "Ellenőrzés",
     "gui.status.ready": "Kész.",
-    "gui.status.encoding": "Kombinált beágyazás… (DCT-vízjel + LSB szétszórás, nagy képnél pár másodperc)",
-    "gui.status.decoding": "Kiolvasás folyamatban…",
+    "gui.status.encoding": "Kombinált beágyazás… (SyncSeal/WAM első használatkor modell-letöltés lehet)",
+    "gui.status.decoding": "Kiolvasás folyamatban… (WAM/SyncSeal, ha be van kapcsolva)",
     "gui.status.verifying": "Látható vízjel ellenőrzése…",
     "gui.status.saved": "Kész — mentve: {path}",
     "gui.status.decoded": "Kész — üzenet kiolvasva.",

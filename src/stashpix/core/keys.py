@@ -71,4 +71,15 @@ def registry_master_key() -> bytes:
     return material
 
 
-__all__ = ["derive_seed", "derive_key_bytes", "registry_master_key", "DEFAULT_SEED"]
+def embed_key_tag(key) -> str:
+    """Short tag stored in registry meta to gate fingerprint fallback by embed key."""
+    if key is None:
+        material = "default"
+    elif isinstance(key, int):
+        material = f"int:{key}"
+    else:
+        material = f"str:{key}"
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
+
+
+__all__ = ["derive_seed", "derive_key_bytes", "registry_master_key", "embed_key_tag", "DEFAULT_SEED"]

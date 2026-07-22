@@ -47,6 +47,9 @@ CATALOG = {
     # ------------------------------------------------------------- layer names
     "layer.lsb.name": "LSB (full message, lossless)",
     "layer.robust.name": "robust ID + registry",
+    "layer.edge_match.name": "registry fingerprint (edge + pHash)",
+    "layer.syncseal.name": "SyncSeal geometric sync",
+    "layer.wam.name": "WAM localization",
     "layer.visible.name": "visible watermark",
     "layer.geo_tps.name": "morph sync (SIFT + TPS + flow) + registry",
     "layer.none": "no layer recovered a message",
@@ -75,6 +78,10 @@ CATALOG = {
     "cli.arg.q": "Fixed QIM step (method=qim).",
     "cli.arg.visible_text": "Optional visible watermark text (4th layer).",
     "cli.arg.visible_opacity": "Visible watermark opacity (0..1).",
+    "cli.arg.wam": "Optional WAM localize fingerprint (downloads model on first use).",
+    "cli.arg.syncseal": "Optional SyncSeal geometric sync watermark (downloads model on first use).",
+    "cli.arg.try_wam": "Try WAM ROI localization before robust extract.",
+    "cli.arg.try_syncseal": "Try SyncSeal unwarp before robust extract.",
     "cli.arg.reference": "Registered (encoded) reference image for geo sync.",
     "cli.arg.output_file": "Write the recovered message here (default: stdout).",
     "cli.arg.show_info": "Print diagnostic info.",
@@ -84,6 +91,8 @@ CATALOG = {
     "cli.embed.robust_id": "  - robust layer ID: {id} (method={method})",
     "cli.embed.lsb": "  - LSB layer: nsym={nsym}, copies={copies}",
     "cli.embed.visible": "  - visible watermark: {text!r} (opacity={opacity})",
+    "cli.embed.wam": "  - WAM localization fingerprint enabled",
+    "cli.embed.syncseal": "  - SyncSeal geometric sync enabled",
     "cli.extract.header": "--- Recovered message ---",
     "cli.extract.lsb": "[LSB layer] Message recovered: {message!r}",
     "cli.extract.robust": "[Robust layer] LSB lost; ID={id} -> registry -> {message!r}",
@@ -135,12 +144,18 @@ CATALOG = {
     "gui.self_verify": "Self-healing check",
     "gui.strength": "Watermark strength:",
     "gui.visible_text": "Visible watermark (optional):",
+    "gui.enable_wam": "WAM localize fingerprint (optional AI, downloads on first use)",
+    "gui.enable_syncseal": "SyncSeal geometric sync (optional AI, downloads on first use)",
+    "gui.try_wam": "Try WAM ROI localize",
+    "gui.try_syncseal": "Try SyncSeal unwarp",
     "gui.encode_hint": (
         "Both invisible layers are embedded. LSB (nsym/copies) = full message, "
         "crop/repaint tolerant. Robust DCT watermark = ID for the registry, "
         "JPEG/resize tolerant. Strength is in JND units (perceptually adaptive): "
         "~1 is the visibility threshold, higher = more robust + more visible. "
-        "Filling 'Visible watermark' also stamps a human-visible diagonal mark (4th layer)."
+        "Filling 'Visible watermark' also stamps a human-visible diagonal mark (4th layer). "
+        "Optional WAM / SyncSeal need PyTorch + first-use model download (~480 MB); "
+        "CPU is fine. Leave them off for a light, invisible embed."
     ),
     "gui.message": "Message to hide:",
     "gui.encode_btn": "Hide message",
@@ -155,8 +170,8 @@ CATALOG = {
     "gui.visible_expected": "Expected text:",
     "gui.verify_btn": "Verify",
     "gui.status.ready": "Ready.",
-    "gui.status.encoding": "Combined embedding… (DCT watermark + LSB spreading, a few seconds on large images)",
-    "gui.status.decoding": "Extracting…",
+    "gui.status.encoding": "Combined embedding… (may download AI models on first SyncSeal/WAM use)",
+    "gui.status.decoding": "Extracting… (WAM/SyncSeal if enabled)",
     "gui.status.verifying": "Verifying visible watermark…",
     "gui.status.saved": "Done — saved: {path}",
     "gui.status.decoded": "Done — message extracted.",

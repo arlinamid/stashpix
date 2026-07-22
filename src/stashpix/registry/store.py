@@ -9,11 +9,15 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ..core.crypto import aead_decrypt, aead_encrypt, b64_decode, b64_encode
 from ..core.keys import registry_master_key
-from ..core.perceptual import dhash_hex, hamming_hex, phash_hex
+from ..core.perceptual import dhash_hex, edge_hash_hex, hamming_hex, phash_hex
 from ..paths import REFS_DIRNAME, default_registry_path
 
 REGISTRY_FORMAT = "stashpix-registry-v1"
 PHASH_TOP_K = 10
+FINGERPRINT_MAX_DIST = 18
+FINGERPRINT_MIN_GAP = 4
+FINGERPRINT_RELAXED_MAX_DIST = 64
+FINGERPRINT_RELAXED_MIN_GAP = 8
 
 
 class Registry:
@@ -83,6 +87,7 @@ class Registry:
         meta = data[id_hex].setdefault("meta", {})
         meta["phash"] = phash_hex(img)
         meta["dhash"] = dhash_hex(img)
+        meta["edge_hash"] = edge_hash_hex(img)
         data[id_hex]["reference"] = os.path.basename(path)
         self._save_plain(data)
         return path
@@ -104,24 +109,44 @@ class Registry:
                     return cand
         return None
 
-    def ranked_reference_ids(self, query_image, *, top_k: int = PHASH_TOP_K) -> List[Tuple[str, int]]:
-        """Return registry IDs sorted by perceptual-hash distance (lowest first)."""
+    def _fingerprint_distance(self, query_image, meta: Dict[str, Any]) -> int:
         query_p = phash_hex(query_image)
         query_d = dhash_hex(query_image)
+        query_e = edge_hash_hex(query_image)
+        ref_p = meta.get("phash")
+        ref_d = meta.get("dhash")
+        ref_e = meta.get("edge_hash")
+        if not (ref_p and ref_d):
+            return 9999
+        dist = hamming_hex(query_p, ref_p) + hamming_hex(query_d, ref_d)
+        if ref_e:
+            dist += hamming_hex(query_e, ref_e)
+        return dist
+
+    def ranked_reference_ids(self, query_image, *, top_k: int = PHASH_TOP_K) -> List[Tuple[str, int]]:
+        """Return registry IDs sorted by perceptual-hash distance (lowest first)."""
         scored: List[Tuple[str, int]] = []
         for id_hex, entry in self._load_plain().items():
             if not self.reference_path(id_hex):
                 continue
             meta = entry.get("meta") or {}
-            ref_p = meta.get("phash")
-            ref_d = meta.get("dhash")
-            if ref_p and ref_d:
-                dist = hamming_hex(query_p, ref_p) + hamming_hex(query_d, ref_d)
-            else:
-                dist = 9999
-            scored.append((id_hex, dist))
+            scored.append((id_hex, self._fingerprint_distance(query_image, meta)))
         scored.sort(key=lambda x: x[1])
         return scored[:top_k] if top_k > 0 else scored
+
+    def resolve_fingerprint(self, query_image, *,
+                            max_dist: int = FINGERPRINT_MAX_DIST,
+                            min_gap: int = FINGERPRINT_MIN_GAP) -> Optional[Tuple[str, int]]:
+        """Match query to a single registry entry by stored fingerprints (not in-image bits)."""
+        ranked = self.ranked_reference_ids(query_image, top_k=2)
+        if not ranked:
+            return None
+        best_id, best_dist = ranked[0]
+        if best_dist > max_dist:
+            return None
+        if len(ranked) > 1 and ranked[1][1] - best_dist < min_gap:
+            return None
+        return best_id, best_dist
 
     def get(self, id_hex: str) -> Optional[Dict[str, Any]]:
         return self._load_plain().get(id_hex)
@@ -142,4 +167,12 @@ class Registry:
         return False
 
 
-__all__ = ["Registry", "default_registry_path", "PHASH_TOP_K"]
+__all__ = [
+    "Registry",
+    "default_registry_path",
+    "PHASH_TOP_K",
+    "FINGERPRINT_MAX_DIST",
+    "FINGERPRINT_MIN_GAP",
+    "FINGERPRINT_RELAXED_MAX_DIST",
+    "FINGERPRINT_RELAXED_MIN_GAP",
+]

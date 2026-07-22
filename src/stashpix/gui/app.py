@@ -318,6 +318,16 @@ class StegoGUI(tk.Tk):
         ttk.Entry(opt, textvariable=self.enc_visible).grid(
             row=2, column=1, columnspan=5, sticky="ew", padx=6, pady=(8, 0))
 
+        self.enc_wam = tk.BooleanVar(value=False)
+        cb_wam = ttk.Checkbutton(opt, variable=self.enc_wam)
+        cb_wam.grid(row=3, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        self._tr(lambda s, w=cb_wam: w.configure(text=s), "gui.enable_wam")
+
+        self.enc_syncseal = tk.BooleanVar(value=False)
+        cb_sync = ttk.Checkbutton(opt, variable=self.enc_syncseal)
+        cb_sync.grid(row=3, column=2, columnspan=4, sticky="w", pady=(6, 0), padx=(10, 0))
+        self._tr(lambda s, w=cb_sync: w.configure(text=s), "gui.enable_syncseal")
+
         hint = ttk.Label(tb, style="Hint.TLabel", wraplength=820, justify="left")
         hint.grid(row=3, column=0, columnspan=3, sticky="w")
         self._tr(lambda s, w=hint: w.configure(text=s), "gui.encode_hint")
@@ -363,13 +373,24 @@ class StegoGUI(tk.Tk):
         self.dec_btn = self._mk_button(tb, "gui.decode_btn", self._do_decode,
                                        style="Accent.TButton", row=3, column=2, padx=(6, 0))
 
-        self._mk_label(tb, "gui.decoded_message", row=4, column=0, sticky="nw", pady=(10, 4))
+        ai = ttk.Frame(tb)
+        ai.grid(row=4, column=0, columnspan=3, sticky="w", pady=(4, 0))
+        self.dec_try_wam = tk.BooleanVar(value=False)
+        cb_tw = ttk.Checkbutton(ai, variable=self.dec_try_wam)
+        cb_tw.grid(row=0, column=0, sticky="w")
+        self._tr(lambda s, w=cb_tw: w.configure(text=s), "gui.try_wam")
+        self.dec_try_syncseal = tk.BooleanVar(value=False)
+        cb_ts = ttk.Checkbutton(ai, variable=self.dec_try_syncseal)
+        cb_ts.grid(row=0, column=1, sticky="w", padx=(16, 0))
+        self._tr(lambda s, w=cb_ts: w.configure(text=s), "gui.try_syncseal")
+
+        self._mk_label(tb, "gui.decoded_message", row=5, column=0, sticky="nw", pady=(10, 4))
         self.dec_out = scrolledtext.ScrolledText(tb, height=8, wrap="word", font=("Segoe UI", 10))
-        self.dec_out.grid(row=4, column=1, columnspan=2, sticky="nsew", padx=6, pady=(10, 4))
-        tb.rowconfigure(4, weight=1)
+        self.dec_out.grid(row=5, column=1, columnspan=2, sticky="nsew", padx=6, pady=(10, 4))
+        tb.rowconfigure(5, weight=1)
 
         bottom = ttk.Frame(tb)
-        bottom.grid(row=5, column=0, columnspan=3, sticky="ew")
+        bottom.grid(row=6, column=0, columnspan=3, sticky="ew")
         bottom.columnconfigure(0, weight=1)
         self.dec_info = ttk.Label(bottom, text="", style="Hint.TLabel")
         self.dec_info.grid(row=0, column=0, sticky="w")
@@ -379,7 +400,7 @@ class StegoGUI(tk.Tk):
                         row=1, column=0, sticky="w", pady=6)
 
         vf = ttk.LabelFrame(tb, padding=8)
-        vf.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(8, 0))
+        vf.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(8, 0))
         vf.columnconfigure(1, weight=1)
         self._tr(lambda s, w=vf: w.configure(text=s), "gui.visible_verify_frame")
         self._mk_label(vf, "gui.visible_expected", row=0, column=0, sticky="w")
@@ -515,7 +536,9 @@ class StegoGUI(tk.Tk):
 
         config = EmbedConfig(key=key, lsb_nsym=nsym, lsb_copies=copies,
                              lsb_self_verify=self.enc_verify.get(),
-                             robust_strength=strength, visible_text=visible)
+                             robust_strength=strength, visible_text=visible,
+                             enable_wam=self.enc_wam.get(),
+                             enable_syncseal=self.enc_syncseal.get())
         self._busy(True, "gui.status.encoding")
 
         def work():
@@ -545,7 +568,9 @@ class StegoGUI(tk.Tk):
 
         def work():
             try:
-                config = ExtractConfig(key=key, robust_strength=strength)
+                config = ExtractConfig(key=key, robust_strength=strength,
+                                       try_wam=self.dec_try_wam.get(),
+                                       try_syncseal=self.dec_try_syncseal.get())
                 if ref:
                     text, info = self.engine.extract_geo_file(inp, ref, config)
                 else:

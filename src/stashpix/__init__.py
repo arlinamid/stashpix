@@ -30,7 +30,7 @@ from .i18n import set_locale, get_locale, available_locales
 from .paths import app_home, default_registry_path
 from .engine import StegoEngine
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 
 __all__ = [
     "__version__",

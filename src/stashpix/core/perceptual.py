@@ -22,6 +22,21 @@ def dhash_hex(img: Image.Image, *, hash_size: int = 8) -> str:
     return f"{value:0{width // 4}x}"
 
 
+def edge_hash_hex(img: Image.Image, *, hash_size: int = 8) -> str:
+    """Gradient-magnitude hash — structural / edge layout, blur-tolerant."""
+    gray = _to_gray_small(img, (hash_size * 4, hash_size * 4))
+    gy, gx = np.gradient(gray)
+    mag = np.hypot(gx, gy)
+    block = mag.reshape(hash_size, 4, hash_size, 4).mean(axis=(1, 3))
+    med = np.median(block)
+    bits = (block > med).flatten()
+    value = 0
+    for bit in bits:
+        value = (value << 1) | int(bit)
+    width = hash_size * hash_size
+    return f"{value:0{width // 4}x}"
+
+
 def phash_hex(img: Image.Image, *, hash_size: int = 8) -> str:
     """Simple DCT-based pHash — 64-bit default."""
     gray = _to_gray_small(img, (hash_size * 4, hash_size * 4))
@@ -55,4 +70,4 @@ def hamming_hex(a: str, b: str) -> int:
     return x.bit_count()
 
 
-__all__ = ["dhash_hex", "phash_hex", "hamming_hex"]
+__all__ = ["dhash_hex", "edge_hash_hex", "phash_hex", "hamming_hex"]

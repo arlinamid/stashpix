@@ -14,7 +14,7 @@ CLI, desktop GUI, and REST API. Fully internationalized (English + Hungarian).
 
 | Layer | Role | Survives |
 | ----- | ---- | -------- |
-| **Robust DCT ID** | 128-bit watermark + registry lookup | JPEG, resize, moderate edits |
+| **Robust DCT ID** | 128-bit watermark + registry lookup | JPEG, resize, mild blur (σ≤1), moderate edits |
 | **Geo sync** | SIFT homography + TPS/flow morph re-align | Rotation, paste, swirl, occlusion |
 | **Auto-match** | pHash shortlist → SIFT over registry refs | Sub-image in another picture |
 | **LSB** | Full message (AES-GCM + RS + copies) | Lossless PNG/BMP only — **not** resize/crop |
@@ -22,6 +22,16 @@ CLI, desktop GUI, and REST API. Fully internationalized (English + Hungarian).
 
 On extraction the engine walks layers in recovery order: LSB (lossless) → robust
 ID → blind deskew → auto-match (homography, then morph TPS+flow).
+
+### Known limits
+
+The invisible robust ID uses **mid-frequency DCT + JND QIM** with **per-block
+adaptive strength** (flat areas skipped, texture at full power — default
+`robust_auto_adapt=True`). It survives JPEG,
+resize, crop, and **mild Gaussian blur (σ≈1)**. Strong defocus (**σ≥2**) is not
+supported without visible artifacts — low-frequency embedding was tried and
+rejected (visible 8×8 grid on sky/skin). SyncSeal/WAM do not restore frequency
+content after blur.
 
 ## Architecture
 
@@ -98,10 +108,32 @@ Contents: encrypted `registry.json`, `stashpix_refs/` (reference images + pHash)
 - **AES-GCM** for LSB payload and encrypted registry at rest
 - **API key** optional auth for registry and mutation endpoints
 
+## Optional AI sync / localize (CPU)
+
+Off by default. Requires PyTorch (CPU wheel is enough; ~32 GB RAM is fine).
+Models download on first use into `~/.stashpix/models/` (~480 MB total) and are
+**not** bundled in the portable zip / MSI.
+
+```bash
+pip install -e ".[ai]"
+# or CPU torch explicitly:
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+stashpix embed -i cover.png -o out.png -m "secret" -k pass --syncseal --wam
+stashpix extract -i out.png -k pass --try-syncseal --try-wam --show-info
+```
+
+- **SyncSeal** — blind geometric re-alignment before robust DCT extract.
+- **WAM** — localize watermarked ROI + 32-bit fingerprint shortlist; the full
+  message still comes from the robust 128-bit ID + registry.
+- Overrides: `STASHPIX_SYNCSEAL`, `STASHPIX_WAM`, `STASHPIX_WAM_ROOT`.
+- Third-party weights/code: Meta SyncSeal / Watermark Anything (MIT WAM weights);
+  see their upstream licenses.
+
 ## Bundled app
 
 ```powershell
-packaging\build.ps1 -Version 1.3.0   # -> dist/stashpix/ + packaging/out/stashpix-1.3.0.msi
+packaging\build.ps1 -Version 1.4.0   # -> dist/stashpix/ + packaging/out/stashpix-1.4.0.msi
 ```
 
 ## Tests

@@ -5,6 +5,47 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.4.0] - 2026-07-22
+
+### Added
+- **Optional SyncSeal + WAM (CPU-first AI helpers, off by default):**
+  - SyncSeal TorchScript geometric sync watermark (`--syncseal` / `--try-syncseal`).
+  - WAM localization + 32-bit fingerprint shortlist (`--wam` / `--try-wam`); full
+    message still comes from the robust 128-bit DCT ID + registry.
+  - Lazy download into `~/.stashpix/models/` (overrides: `STASHPIX_SYNCSEAL`,
+    `STASHPIX_WAM`, `STASHPIX_WAM_ROOT`). WAM code shallow-cloned to
+    `~/.stashpix/vendor/watermark-anything` on first use.
+  - Extras: `pip install -e ".[sync]"`, `".[wam]"`, or `".[ai]"` (torch CPU wheel
+    recommended). Portable/MSI stays without model weights.
+  - GUI toggles on Encode / Decode tabs (default off).
+- **Registry fingerprint fallback (edge + pHash + dHash, not in-image):** when
+  robust DCT decode fails (e.g. blur σ=2), extract matches the query against
+  reference fingerprints stored at embed time. Strict pass (≤18 bit Hamming);
+  **relaxed pass (≤64 bit, min gap 8)** for full-frame stylized edits (sketch /
+  edge filter). Partial crops stay above 64 bit and are not matched.
+
+### Fixed
+- **Robust DCT frame had CRC detection only — one flipped bit meant total
+  failure** even with a near-perfect SIFT alignment (e.g. 30%-crop pasted into
+  another photo). The 160-bit `sync+id+crc` payload is now wrapped in
+  **Hamming(7,4)** (`FRAME_BITS` 160 → 280 on the wire) so single-bit errors
+  per group are corrected before the CRC check. Defaults stay **invisible**:
+  mid-frequency `COEFS_MID` + adaptive `jnd` (strength 3).
+- **Per-block adaptive JND (default on):** embed strength scales with 8×8 AC
+  energy — flat sky/gradients are skipped entirely; textured blocks ramp to full
+  strength by `TEXTURE_FULL=64`. Extract uses the same blind scale so decode
+  stays aligned. Config: `robust_auto_adapt` (default `True`).
+- **Fingerprint fallback respects embed key:** registry `key_tag` prevents
+  edge-match recovery when the extract password does not match the embed key.
+
+### Known limits
+- **Gaussian blur σ=2 (`blur2`)** is beyond the invisible mid-band DCT ID. Mild
+  blur (σ=1, `blur1`) is supported; stronger defocus destroys mid-frequency QIM
+  parity. Low-frequency QIM (e.g. fixed Q≈55) was measured and rejected — visible
+  8×8 grid on flat areas (~30 dB PSNR). Not a product target.
+
 ## [1.3.0] - 2026-07-21
 
 ### Changed
@@ -91,6 +132,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Standalone bundling via PyInstaller and a Windows MSI via WiX v4+.
 - Released under the PolyForm Noncommercial License 1.0.0.
 
+[1.4.0]: https://github.com/arlinamid/stashpix/releases/tag/v1.4.0
 [1.3.0]: https://github.com/arlinamid/stashpix/releases/tag/v1.3.0
 [1.2.0]: https://github.com/arlinamid/stashpix/releases/tag/v1.2.0
 [1.1.0]: https://github.com/arlinamid/stashpix/releases/tag/v1.1.0
