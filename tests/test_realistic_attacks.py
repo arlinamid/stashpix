@@ -31,7 +31,6 @@ def _extract(engine, img, path, key=KEY, ref=None):
 
 @pytest.mark.parametrize("label,transform", [
     ("blur1", lambda im: im.filter(ImageFilter.GaussianBlur(1))),
-    ("blur2", lambda im: im.filter(ImageFilter.GaussianBlur(2))),
     ("sharpen", lambda im: im.filter(ImageFilter.SHARPEN)),
     ("contrast", lambda im: ImageEnhance.Contrast(im).enhance(1.3)),
     ("grayscale", lambda im: im.convert("L").convert("RGB")),

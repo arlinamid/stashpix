@@ -2,7 +2,7 @@
 
 from PIL import Image
 
-from stashpix.core.perceptual import dhash_hex, hamming_hex, phash_hex
+from stashpix.core.perceptual import dhash_hex, edge_hash_hex, hamming_hex, phash_hex
 from stashpix.registry import Registry
 
 
@@ -10,6 +10,11 @@ def test_phash_stable(noise_path):
     img = Image.open(noise_path).convert("RGB")
     assert phash_hex(img) == phash_hex(img)
     assert dhash_hex(img) == dhash_hex(img)
+
+
+def test_edge_hash_stable(noise_path):
+    img = Image.open(noise_path).convert("RGB")
+    assert edge_hash_hex(img) == edge_hash_hex(img)
 
 
 def test_hamming_identical_zero(noise_path):
