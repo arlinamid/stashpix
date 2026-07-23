@@ -73,6 +73,45 @@ def test_authorship_fields_written_and_readable(tmp_path):
     assert read.get("signed_by") == "58a3cfabd766b452"
 
 
+def test_png_carries_xmp_for_explorer_author_copyright(tmp_path):
+    """Windows Explorer reads Authors/Copyright from XMP, not EXIF Artist.
+
+    An EXIF-only PNG shows those fields blank in Explorer (Date taken works,
+    Authors/Copyright do not). The XMP packet (dc:creator / dc:rights) is what
+    populates them, so it must be embedded as an iTXt chunk.
+    """
+    import struct
+    import xml.dom.minidom as minidom
+
+    img = Image.open(_png(tmp_path)).convert("RGB")
+    out = tmp_path / "out.png"
+    save_lossless(img, str(out),
+                  metadata=ImageMetadata(author=AUTHOR, copyright_notice=COPY))
+
+    raw = out.read_bytes()
+    i, chunks = 8, []
+    while i < len(raw):
+        ln = struct.unpack(">I", raw[i:i + 4])[0]
+        chunks.append(raw[i + 4:i + 8].decode("latin1"))
+        i += 12 + ln
+    assert "iTXt" in chunks, "no XMP iTXt chunk"
+
+    xmp = Image.open(out).text["XML:com.adobe.xmp"]
+    minidom.parseString(xmp.encode("utf-8"))          # well-formed
+    assert "dc:creator" in xmp and AUTHOR in xmp
+    assert "dc:rights" in xmp and COPY in xmp
+
+
+def test_xmp_escapes_xml_special_chars():
+    from stashpix.core.metadata import build_xmp
+    import xml.dom.minidom as minidom
+
+    xmp = build_xmp(ImageMetadata(author="A & B <script>", copyright_notice='"q"'))
+    minidom.parseString(xmp.encode("utf-8"))          # must still be valid XML
+    assert "A & B" not in xmp                          # raw & would be invalid
+    assert "&amp;" in xmp
+
+
 def test_source_exif_is_preserved(tmp_path):
     # Give the source a distinctive EXIF Artist, then save through our pipeline
     # WITHOUT supplying metadata -> the source value must survive.
