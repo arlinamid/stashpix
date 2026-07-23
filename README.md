@@ -28,6 +28,21 @@ watermark is destroyed, extraction fails closed and returns nothing. It never
 falls back to "this looks like a picture I have on file" — see
 [Known limits](#known-limits).
 
+**Provable authorship.** The watermark ties a UUID to the pixels; an **Ed25519
+signature** ties that UUID to *your* key at a stated time. On extraction the
+engine reports whether the claim is validly signed and by whom:
+
+```
+[Authorship] VALID signature — signed by 58a3cfabd766b452 at 2026-07-23T07:58:03+00:00
+```
+
+The chain is `pixels → (robust DCT) → UUID → (signature) → your key`, so proving
+ownership reduces to "the holder of public key K signed that watermark X is
+theirs". Publish your public key (`stashpix identity --export-public`) and anyone
+can verify. Honest scope: the timestamp is self-asserted — it proves you claimed
+a time, not that the time is true; precedence between rival claims needs a
+trusted timestamp anchor (RFC 3161 / C2PA), which is the next step.
+
 ### Keys
 
 A key is **mandatory**; there is no default. Watermark keys are password-derived

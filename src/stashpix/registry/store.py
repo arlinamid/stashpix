@@ -72,6 +72,19 @@ class Registry:
         }
         self._save_plain(data)
 
+    def set_signature(self, id_hex: str, record: Dict[str, Any]) -> bool:
+        """Attach an authorship signature record to an existing entry."""
+        data = self._load_plain()
+        if id_hex not in data:
+            return False
+        data[id_hex]["signature"] = record
+        self._save_plain(data)
+        return True
+
+    def signature_for(self, id_hex: str) -> Optional[Dict[str, Any]]:
+        entry = self.get(id_hex)
+        return entry.get("signature") if entry else None
+
     def refs_dir(self) -> str:
         return os.path.join(os.path.dirname(os.path.abspath(self.path)), REFS_DIRNAME)
 

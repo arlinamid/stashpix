@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Ed25519 authorship signatures — "prove I made this", not just "a watermark
+  is present".** The robust watermark binds a UUID to the pixels; it could not,
+  on its own, prove *who* claimed the image or *when*. The owner now holds a
+  long-term Ed25519 identity; each embed signs a canonical claim binding the
+  watermark UUID, the message and a UTC timestamp to the owner's public key.
+  Extraction verifies it and reports `authorship: {valid, signer, created}`.
+  A verifier needs only the freely-publishable public key.
+  - Signing is on by default (`EmbedConfig.sign`), verification too
+    (`ExtractConfig.verify_signature`). The signature is checked even when the
+    message was recovered from LSB.
+  - `stashpix identity` — show the fingerprint / public key, export the public
+    key (PEM) to publish, or export/import the private identity as
+    password-encrypted PKCS8 for backup and multi-machine use.
+  - The identity private key is the owner's **portable root secret**: wrapped at
+    rest against file theft, but exportable by design (unlike the machine-bound
+    registry key). Losing it means losing the ability to sign as you.
+  - Scope, stated plainly: the signature is non-repudiable relative to the
+    keyholder. `created` is **self-asserted** — it proves the signer claimed a
+    time, not that the time is true. Precedence between competing claims needs a
+    trusted timestamp anchor (RFC 3161 / C2PA), tracked next.
+
 ## [1.5.0] - 2026-07-22
 
 Security and reliability release. **Contains breaking changes** — see below.

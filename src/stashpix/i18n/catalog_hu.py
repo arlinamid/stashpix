@@ -48,6 +48,16 @@ CATALOG = {
         "származna, és bárki kiolvashatná. Add meg a -k/--key kapcsolót (CLI), "
         "vagy állítsd be a 'key' mezőt a configban."
     ),
+    "error.authorship": "[Szerzőség] Az aláírási művelet sikertelen.",
+    "error.identity_unwrap": (
+        "[Identitás] Nem sikerült feloldani a szerzőségi kulcsot ({detail}). Ez a "
+        "géphez van kötve; állítsd vissza mentésből: 'identity --import'."
+    ),
+    "error.identity_exists": (
+        "[Identitás] Már létezik szerzőségi kulcs. A cseréhez add meg: --overwrite."
+    ),
+    "error.identity_import_type": "[Identitás] Az importált kulcs nem Ed25519 kulcs.",
+    "error.identity_export_password": "[Identitás] Az exporthoz nem üres jelszó kell.",
     "error.dependency_cv2": (
         "A geometriai szinkronhoz OpenCV kell: pip install opencv-python"
     ),
@@ -102,6 +112,21 @@ CATALOG = {
     "cli.embed.visible": "  - látható vízjel: {text!r} (opacity={opacity})",
     "cli.embed.wam": "  - WAM lokalizáló ujjlenyomat bekapcsolva",
     "cli.embed.syncseal": "  - SyncSeal geometriai sync bekapcsolva",
+    "cli.identity.help": "Az aláíráshoz használt Ed25519 szerzőségi identitás kezelése.",
+    "cli.arg.identity_show": "Az identitás ujjlenyomatának és publikus kulcsának kiírása.",
+    "cli.arg.identity_create": "Identitás létrehozása most, ha még nincs.",
+    "cli.arg.identity_export_public": "A megosztható publikus kulcs (PEM) kiírása ide: PATH.",
+    "cli.arg.identity_export": "A privát identitás exportja (jelszóval titkosított PKCS8) ide: PATH.",
+    "cli.arg.identity_import": "Jelszóval titkosított privát identitás importja innen: PATH.",
+    "cli.arg.identity_password": "Jelszó a --export / --import művelethez.",
+    "cli.arg.identity_overwrite": "Az --import felülírhassa a meglévő identitást.",
+    "cli.identity.fingerprint": "Szerzőségi identitás: {fp}",
+    "cli.identity.none": "Még nincs szerzőségi identitás. Futtasd: 'identity --create', vagy ágyazz be egyszer.",
+    "cli.identity.exported_public": "Publikus kulcs kiírva: {path} (identitás {fp}).",
+    "cli.identity.exported": "Privát identitás exportálva (jelszóval titkosítva): {path}.",
+    "cli.identity.imported": "Identitás importálva: {fp}",
+    "cli.extract.signed_ok": "[Szerzőség] ÉRVÉNYES aláírás — aláíró: {signer}, ekkor: {created}.",
+    "cli.extract.signed_bad": "[Szerzőség] Az aláírás NEM érvényes ({reason}).",
     "cli.extract.header": "--- Kiolvasott üzenet ---",
     "cli.extract.lsb": "[LSB réteg] Üzenet visszanyerve: {message!r}",
     "cli.extract.robust": "[Robusztus réteg] LSB elveszett; ID={id} -> registry -> {message!r}",

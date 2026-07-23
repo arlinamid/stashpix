@@ -93,6 +93,17 @@ def _build_parser() -> argparse.ArgumentParser:
     v.add_argument("--threshold", type=float, default=DEFAULT_VISIBLE_THRESHOLD)
     v.set_defaults(func=_cmd_verify_visible)
 
+    idp = sub.add_parser("identity", help=t("cli.identity.help"))
+    idp.add_argument("--show", action="store_true", help=t("cli.arg.identity_show"))
+    idp.add_argument("--create", action="store_true", help=t("cli.arg.identity_create"))
+    idp.add_argument("--export-public", metavar="PATH", help=t("cli.arg.identity_export_public"))
+    idp.add_argument("--export", metavar="PATH", help=t("cli.arg.identity_export"))
+    idp.add_argument("--import", dest="import_path", metavar="PATH",
+                     help=t("cli.arg.identity_import"))
+    idp.add_argument("--password", default=None, help=t("cli.arg.identity_password"))
+    idp.add_argument("--overwrite", action="store_true", help=t("cli.arg.identity_overwrite"))
+    idp.set_defaults(func=_cmd_identity)
+
     gui = sub.add_parser("gui", help=t("cli.gui.help"))
     gui.set_defaults(func=_cmd_gui)
 
@@ -172,10 +183,54 @@ def _emit_extract(args, message: Optional[str], info: dict) -> int:
     else:
         print(t("cli.extract.header"))
         print(message)
+    auth = info.get("authorship")
+    if auth:
+        if auth.get("valid"):
+            print(t("cli.extract.signed_ok", signer=auth.get("signer"),
+                    created=auth.get("created")))
+        else:
+            print(t("cli.extract.signed_bad", reason=auth.get("reason")))
     if getattr(args, "show_info", False):
         print(t("cli.extract.layer", layer=info.get("layer")))
         for k, val in info.items():
             print(f"  {k}: {val}")
+    return 0
+
+
+def _cmd_identity(args) -> int:
+    from .core import authorship
+
+    if args.import_path:
+        if not args.password:
+            print(t("error.identity_export_password"))
+            return 2
+        with open(args.import_path, "rb") as f:
+            authorship.import_identity(f.read(), args.password, overwrite=args.overwrite)
+        print(t("cli.identity.imported",
+                fp=authorship.identity_fingerprint(create=False)))
+        return 0
+
+    priv = authorship.load_or_create_identity(create=args.create or args.show
+                                              or bool(args.export_public) or bool(args.export))
+    if priv is None:
+        print(t("cli.identity.none"))
+        return 2
+
+    fp = authorship.public_fingerprint(authorship.public_key_bytes(priv))
+    if args.export_public:
+        with open(args.export_public, "w", encoding="utf-8") as f:
+            f.write(authorship.export_public_pem(priv))
+        print(t("cli.identity.exported_public", path=args.export_public, fp=fp))
+    if args.export:
+        if not args.password:
+            print(t("error.identity_export_password"))
+            return 2
+        with open(args.export, "wb") as f:
+            f.write(authorship.export_identity(priv, args.password))
+        print(t("cli.identity.exported", path=args.export))
+    if args.show or not (args.export_public or args.export):
+        print(t("cli.identity.fingerprint", fp=fp))
+        print(authorship.export_public_pem(priv).strip())
     return 0
 
 

@@ -48,6 +48,16 @@ CATALOG = {
         "fixed constant and anyone could read it. Pass -k/--key (CLI) or set "
         "'key' on the config."
     ),
+    "error.authorship": "[Authorship] Signature operation failed.",
+    "error.identity_unwrap": (
+        "[Identity] Could not unlock the authorship key ({detail}). It is bound "
+        "to this machine; restore it from a backup with 'identity --import'."
+    ),
+    "error.identity_exists": (
+        "[Identity] An authorship key already exists. Pass --overwrite to replace it."
+    ),
+    "error.identity_import_type": "[Identity] The imported key is not an Ed25519 key.",
+    "error.identity_export_password": "[Identity] Export requires a non-empty password.",
     "error.dependency_cv2": (
         "Geometric synchronization requires OpenCV: pip install opencv-python"
     ),
@@ -102,6 +112,21 @@ CATALOG = {
     "cli.embed.visible": "  - visible watermark: {text!r} (opacity={opacity})",
     "cli.embed.wam": "  - WAM localization fingerprint enabled",
     "cli.embed.syncseal": "  - SyncSeal geometric sync enabled",
+    "cli.identity.help": "Manage the Ed25519 authorship identity used to sign claims.",
+    "cli.arg.identity_show": "Show the identity fingerprint and public key.",
+    "cli.arg.identity_create": "Create the identity now if it does not exist.",
+    "cli.arg.identity_export_public": "Write the shareable public key (PEM) to PATH.",
+    "cli.arg.identity_export": "Export the private identity (password-encrypted PKCS8) to PATH.",
+    "cli.arg.identity_import": "Import a password-encrypted private identity from PATH.",
+    "cli.arg.identity_password": "Password for --export / --import.",
+    "cli.arg.identity_overwrite": "Allow --import to replace an existing identity.",
+    "cli.identity.fingerprint": "Authorship identity: {fp}",
+    "cli.identity.none": "No authorship identity yet. Run 'identity --create' or embed once.",
+    "cli.identity.exported_public": "Public key written to {path} (identity {fp}).",
+    "cli.identity.exported": "Private identity exported (password-encrypted) to {path}.",
+    "cli.identity.imported": "Identity imported: {fp}",
+    "cli.extract.signed_ok": "[Authorship] VALID signature — signed by {signer} at {created}.",
+    "cli.extract.signed_bad": "[Authorship] Signature NOT valid ({reason}).",
     "cli.extract.header": "--- Recovered message ---",
     "cli.extract.lsb": "[LSB layer] Message recovered: {message!r}",
     "cli.extract.robust": "[Robust layer] LSB lost; ID={id} -> registry -> {message!r}",

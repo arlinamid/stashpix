@@ -55,6 +55,10 @@ class EmbedConfig:
     enable_wam: bool = False
     enable_syncseal: bool = False
 
+    # Authorship signature (default on): sign the registry claim with the
+    # owner's Ed25519 identity so ownership is provable, not just present.
+    sign: bool = True
+
     def __post_init__(self):
         # Single chokepoint for CLI, GUI, REST and library callers alike.
         # Before 1.5.0 a missing key silently fell back to the constant seed
@@ -77,6 +81,9 @@ class ExtractConfig:
     # Optional AI extract helpers (default off)
     try_wam: bool = False
     try_syncseal: bool = False
+
+    # Verify the authorship signature on any recovered registry claim.
+    verify_signature: bool = True
 
     def __post_init__(self):
         require_key(self.key)
