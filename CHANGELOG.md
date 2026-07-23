@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-07-23
+
 ### Fixed
 - **Windows Explorer showed a blank Author/Copyright for stego PNGs.** The fields
   were written to EXIF (Artist/Copyright) and PNG text, and Explorer read our
@@ -249,6 +251,7 @@ at-rest secrets are machine-bound.
 - Standalone bundling via PyInstaller and a Windows MSI via WiX v4+.
 - Released under the PolyForm Noncommercial License 1.0.0.
 
+[1.5.1]: https://github.com/arlinamid/stashpix/releases/tag/v1.5.1
 [1.5.0]: https://github.com/arlinamid/stashpix/releases/tag/v1.5.0
 [1.4.0]: https://github.com/arlinamid/stashpix/releases/tag/v1.4.0
 [1.3.0]: https://github.com/arlinamid/stashpix/releases/tag/v1.3.0

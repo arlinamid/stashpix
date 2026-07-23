@@ -10,17 +10,17 @@
       2. wix build    -> packaging/out/stashpix-<version>.msi
 
 .PARAMETER Version
-    Product version written into the MSI. Defaults to 1.5.0.
+    Product version written into the MSI. Defaults to 1.5.1.
 
 .PARAMETER SkipBundle
     Reuse an existing dist/stashpix and only (re)build the MSI.
 
 .EXAMPLE
     packaging\build.ps1
-    packaging\build.ps1 -Version 1.5.0
+    packaging\build.ps1 -Version 1.5.1
 #>
 param(
-    [string]$Version = "1.5.0",
+    [string]$Version = "1.5.1",
     [switch]$SkipBundle
 )
 

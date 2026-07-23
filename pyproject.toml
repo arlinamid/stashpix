@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stashpix"
-version = "1.5.0"
+version = "1.5.1"
 description = "Robust image ID and steganography — lock ownership into pixels (LSB + DCT watermark + morph sync) with CLI, GUI and REST API."
 readme = "README.md"
 requires-python = ">=3.9"
