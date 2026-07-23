@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-07-23
+
+Security, reliability, and provenance release. **Contains breaking changes** — see below.
+
 ### Added
 - **Image metadata (EXIF / PNG tags) + a GUI Settings tab.**
   - Embedding now **preserves the source image's EXIF and ICC profile** — the old
@@ -43,10 +47,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     keyholder. `created` is **self-asserted** — it proves the signer claimed a
     time, not that the time is true. Precedence between competing claims needs a
     trusted timestamp anchor (RFC 3161 / C2PA), tracked next.
-
-## [1.5.0] - 2026-07-22
-
-Security and reliability release. **Contains breaking changes** — see below.
 
 ### Removed
 - **`edge_match` registry-fingerprint fallback (security).** It resolved a
