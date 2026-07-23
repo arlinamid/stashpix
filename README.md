@@ -43,11 +43,12 @@ one machine opens on another. Two derivations, deliberately different:
 ### Known limits
 
 The invisible robust ID uses **mid-frequency DCT + JND QIM** with per-block
-adaptive strength (flat areas skipped, texture gets more). The QIM step is
-derived only from quantities the embedder never modifies, so encoder and blind
-decoder agree on the lattice. Embedding self-verifies: it escalates strength
-until the mark reads back **and** survives JPEG q50, and raises rather than
-shipping an image whose watermark cannot be read.
+adaptive strength: flat areas are skipped, mildly-textured blocks get a floored
+scale so their step stays stable, and texture ramps up from there. The QIM step
+is derived only from quantities the embedder never modifies, so encoder and
+blind decoder agree on the lattice. Embedding self-verifies: it escalates
+strength until the mark reads back **and** survives JPEG q50, and raises rather
+than shipping an image whose watermark cannot be read.
 
 It survives JPEG, resize, crop, and **mild Gaussian blur (σ≈1)**. Strong defocus
 (**σ≥2**) destroys it — low-frequency embedding was measured and rejected

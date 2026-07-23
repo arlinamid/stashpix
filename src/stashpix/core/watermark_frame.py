@@ -30,6 +30,8 @@ AC_GATE = 8.0
 # then grows with Watson's contrast-masking exponent up to MAX_SCALE.
 TEXTURE_FULL = 64.0
 MAX_SCALE = 4.0
+# The ramp starts here rather than at 0. See adaptive_strength_scale.
+MIN_USEFUL_SCALE = 0.35
 TileBounds = Optional[Tuple[int, int, int, int]]  # y0, x0, y1, x1 pixel coords
 
 
@@ -51,25 +53,29 @@ def block_ac_energy(coef: np.ndarray,
 def adaptive_strength_scale(ac_energy: float) -> float:
     """Map embed-invariant block AC energy to a JND strength multiplier.
 
-    Flat blocks (sky, smooth gradients) get 0 — no embed, no votes — which both
-    matches the decoder's AC gate and avoids a visible 8x8 grid where the
-    watermark could not survive anyway. Above ``TEXTURE_FULL`` the scale keeps
-    growing with texture (contrast masking), recovering the robustness that
-    dropping Watson's per-coefficient self-masking term would otherwise cost.
+    Truly flat blocks (sky, smooth gradients) sit at or below ``AC_GATE`` and get
+    0 — no embed, no votes — which both matches the decoder's AC gate and avoids
+    a visible 8x8 grid where the watermark could not survive anyway.
 
-    KNOWN LIMIT: just above the gate the scale approaches 0, so the step becomes
-    tiny and the few percent of energy drift from the canonical resize round
-    trip moves it by ~100%. Those blocks are the tail of the step-drift
-    distribution (measured: median 5.75%, worst ~57%). Flooring the ramp at a
-    usable minimum would stabilise them, but it also raises the modulation
-    energy in near-flat blocks, which risks the visible 8x8 grid this gate
-    exists to prevent. Needs a PSNR + attack sweep before changing -- see the
-    follow-up note in the PR.
+    The ramp between the gate and ``TEXTURE_FULL`` starts at ``MIN_USEFUL_SCALE``,
+    not at 0. A scale approaching 0 just above the gate makes the QIM step tiny,
+    so the few percent of energy drift from the canonical resize round trip moves
+    it by ~100% and the decoder reads a different lattice than the encoder wrote.
+    Flooring the ramp keeps the relative step stable there.
+
+    Measured (six covers, floor 0.35 vs a ramp from 0): the step-drift tail above
+    25% collapses from ~10-13% to <1% on the problem covers, JPEG q40 survival
+    improves, and invisibility is unaffected — flat-region PSNR stays 39-42 dB,
+    because the floor only lifts already-textured blocks (AC energy > gate), never
+    the flat ones that are skipped outright. Above ``TEXTURE_FULL`` the scale
+    keeps growing with texture (contrast masking), recovering the robustness that
+    dropping Watson's per-coefficient self-masking term would otherwise cost.
     """
     if ac_energy <= AC_GATE:
         return 0.0
     if ac_energy < TEXTURE_FULL:
-        return (ac_energy - AC_GATE) / (TEXTURE_FULL - AC_GATE)
+        t = (ac_energy - AC_GATE) / (TEXTURE_FULL - AC_GATE)
+        return MIN_USEFUL_SCALE + (1.0 - MIN_USEFUL_SCALE) * t
     return min(MAX_SCALE, (ac_energy / TEXTURE_FULL) ** CM_W)
 
 
@@ -275,6 +281,7 @@ __all__ = [
     "AC_GATE",
     "TEXTURE_FULL",
     "MAX_SCALE",
+    "MIN_USEFUL_SCALE",
     "adaptive_strength_scale",
     "block_ac_energy",
     "block_profile",

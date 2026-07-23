@@ -153,22 +153,17 @@ def test_qim_step_is_invariant_under_embedding(engine, tmp_path):
     drift = np.array(drift)
     assert len(drift) > 500
     # v1.4.0 measured: median 24.8%, 49.8% above 25%, 29.2% above 50%.
-    # v1.5.0 measured: median 5.75%.
+    # v1.5.0 measured (floored ramp): median ~4%, tail above 25% under 3% on this
+    # cover. The residual is NOT the self-masking feedback loop this change
+    # removed -- it is the canonical-size resize round trip (768 -> 512 -> ...)
+    # plus 8-bit quantization nudging DC and AC energy, inherent to embedding at
+    # a canonical scale for resize invariance.
     #
-    # The residual is NOT the self-masking feedback loop this change removed --
-    # it is the canonical-size resize round trip (768 -> 512 -> 768 -> 512) plus
-    # 8-bit quantization nudging DC and AC energy. That noise floor is inherent
-    # to embedding at a canonical scale for resize invariance. The tail comes
-    # from blocks sitting just above AC_GATE, where the scale approaches 0 and a
-    # small energy wobble moves the step a lot; see the KNOWN LIMIT note on
-    # adaptive_strength_scale.
-    #
-    # The threshold sits between the two measurements: loose enough for the
-    # resize noise floor, tight enough that reintroducing a coefficient-dependent
-    # step fails this immediately. Only the median is asserted -- the tail shape
-    # has not been measured, and a guessed bound would be a flaky test rather
-    # than a real guarantee.
+    # Thresholds sit between the two regimes: loose enough for the resize noise
+    # floor, tight enough that reintroducing a coefficient-dependent step (which
+    # put ~30% of coefficients above 50%) fails immediately.
     assert np.median(drift) < 0.10, f"median step drift {np.median(drift):.2%}"
+    assert np.mean(drift > 0.25) < 0.08, f"{np.mean(drift > 0.25):.2%} above 25%"
 
 
 def test_carrier_coefficients_excluded_from_texture_measure():

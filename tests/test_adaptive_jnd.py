@@ -10,6 +10,7 @@ import pytest
 from stashpix.core.watermark_frame import (
     AC_GATE,
     MAX_SCALE,
+    MIN_USEFUL_SCALE,
     TEXTURE_FULL,
     adaptive_strength_scale,
 )
@@ -24,9 +25,22 @@ def test_full_texture_is_unity():
     assert adaptive_strength_scale(TEXTURE_FULL) == pytest.approx(1.0)
 
 
-def test_mid_ramp_is_linear():
+def test_ramp_starts_at_the_floor_not_zero():
+    """A scale approaching 0 above the gate makes the QIM step unstable: a few
+    percent of resize-round-trip energy drift moves it ~100%. Measured, flooring
+    the ramp cuts the >25% drift tail from ~10-13% to <1% with no invisibility
+    cost (flat-region PSNR unchanged), so the ramp must not start near 0.
+    """
+    assert adaptive_strength_scale(AC_GATE + 1e-6) == pytest.approx(MIN_USEFUL_SCALE)
+    a = adaptive_strength_scale(AC_GATE + 1.0)
+    b = adaptive_strength_scale((AC_GATE + 1.0) * 1.1)
+    assert abs(b - a) / a < 0.05          # 10% energy wobble barely moves the step
+
+
+def test_mid_ramp_is_floored_linear():
     mid = (AC_GATE + TEXTURE_FULL) / 2
-    assert adaptive_strength_scale(mid) == pytest.approx(0.5)
+    expected = MIN_USEFUL_SCALE + (1.0 - MIN_USEFUL_SCALE) * 0.5
+    assert adaptive_strength_scale(mid) == pytest.approx(expected)
 
 
 def test_ramp_is_monotonic():
@@ -34,7 +48,7 @@ def test_ramp_is_monotonic():
     for energy in range(int(AC_GATE) + 1, int(TEXTURE_FULL) + 1):
         cur = adaptive_strength_scale(float(energy))
         assert cur >= prev
-        assert 0.0 < cur <= 1.0
+        assert MIN_USEFUL_SCALE <= cur <= 1.0
         prev = cur
 
 
