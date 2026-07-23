@@ -32,10 +32,33 @@ datas += collect_data_files("stashpix")
 hiddenimports = [
     "cv2", "reedsolo", "numpy",
     "argon2", "argon2.low_level", "cryptography", "cryptography.hazmat.primitives.ciphers.aead",
+    "cryptography.hazmat.primitives.asymmetric.ed25519",
     "PIL", "PIL._tkinter_finder",
     "fastapi", "starlette", "pydantic", "multipart",
 ]
 hiddenimports += collect_submodules("uvicorn")
+
+# The optional AI helpers (SyncSeal / WAM) import torch lazily and degrade
+# gracefully when it is absent — the portable/MSI is documented to ship WITHOUT
+# torch or model weights. Without these excludes PyInstaller follows those
+# in-function imports and sweeps the entire ML/data-science stack out of whatever
+# global environment the build runs in (a ~550 MB MSI full of torch,
+# transformers, spaCy, scipy, pandas, botocore, yt_dlp — none used by stashpix).
+# stashpix imports none of these at module level; excluding them is safe and
+# keeps the bundle to its real dependencies (Pillow, numpy, cryptography, cv2).
+excludes = [
+    # optional AI (install torch yourself to enable SyncSeal/WAM)
+    "torch", "torchvision", "torchaudio", "transformers", "tokenizers",
+    "onnxruntime", "sympy", "networkx",
+    # spaCy / thinc stack, pulled transitively, unused here
+    "spacy", "thinc", "blis", "catalogue", "srsly", "wasabi", "preshed",
+    "cymem", "murmurhash", "langcodes",
+    # data-science stack, unused here
+    "scipy", "sklearn", "scikit_learn", "pandas", "matplotlib", "numba", "llvmlite",
+    # cloud / media / networking junk from a dirty global env
+    "botocore", "boto3", "s3transfer", "grpc", "yt_dlp", "mutagen", "av",
+    "imageio", "imageio_ffmpeg",
+]
 
 cli = Analysis(
     [os.path.join(SPECPATH, "stashpix_cli.py")],
@@ -44,7 +67,7 @@ cli = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     runtime_hooks=[],
-    excludes=[],
+    excludes=excludes,
     noarchive=False,
 )
 gui = Analysis(
@@ -54,7 +77,7 @@ gui = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     runtime_hooks=[],
-    excludes=[],
+    excludes=excludes,
     noarchive=False,
 )
 
