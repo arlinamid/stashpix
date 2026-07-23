@@ -98,7 +98,52 @@ def build_png_text(meta: ImageMetadata, *, source: Optional[Image.Image] = None)
         info.add_text("stashpix:watermark_id", meta.watermark_id)
     if meta.signed_by:
         info.add_text("stashpix:signed_by", meta.signed_by)
+    xmp = build_xmp(meta)
+    if xmp:
+        # Windows Explorer reads "Authors"/"Copyright" from XMP (dc:creator /
+        # dc:rights), NOT from EXIF Artist/Copyright, so an EXIF-only PNG shows
+        # those fields blank. The XMP packet is what makes them appear.
+        info.add_itxt("XML:com.adobe.xmp", xmp, zip=False)
     return info
+
+
+def build_xmp(meta: ImageMetadata) -> str:
+    """Minimal XMP packet (dc:creator / dc:rights / xmp:CreatorTool).
+
+    Windows' property system and most editors surface author/copyright from XMP
+    across formats — including PNG, where EXIF Artist/Copyright is not read for
+    the Explorer "Authors"/"Copyright" fields.
+    """
+    from xml.sax.saxutils import escape
+    props = []
+    if meta.author:
+        props.append(
+            f"<dc:creator><rdf:Seq><rdf:li>{escape(meta.author)}"
+            f"</rdf:li></rdf:Seq></dc:creator>")
+    if meta.copyright_notice:
+        props.append(
+            f'<dc:rights><rdf:Alt><rdf:li xml:lang="x-default">'
+            f"{escape(meta.copyright_notice)}</rdf:li></rdf:Alt></dc:rights>")
+    props.append(f"<xmp:CreatorTool>{escape(meta.software or SOFTWARE_TAG)}"
+                 f"</xmp:CreatorTool>")
+    if meta.description:
+        props.append(
+            f'<dc:description><rdf:Alt><rdf:li xml:lang="x-default">'
+            f"{escape(meta.description)}</rdf:li></rdf:Alt></dc:description>")
+    if not (meta.author or meta.copyright_notice or meta.description):
+        return ""
+    body = "".join(props)
+    return (
+        '<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>'
+        '<x:xmpmeta xmlns:x="adobe:ns:meta/">'
+        '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+        '<rdf:Description rdf:about="" '
+        'xmlns:dc="http://purl.org/dc/elements/1.1/" '
+        'xmlns:xmp="http://ns.adobe.com/xap/1.0/">'
+        f"{body}"
+        "</rdf:Description></rdf:RDF></x:xmpmeta>"
+        '<?xpacket end="w"?>'
+    )
 
 
 def save_kwargs(meta: Optional[ImageMetadata], *, fmt: str,
@@ -124,6 +169,9 @@ def save_kwargs(meta: Optional[ImageMetadata], *, fmt: str,
         exif = build_exif(effective, source=source)
         if exif:
             kwargs["exif"] = exif
+        xmp = build_xmp(effective)
+        if xmp:
+            kwargs["xmp"] = xmp.encode("utf-8")
     return kwargs
 
 
@@ -170,6 +218,7 @@ __all__ = [
     "SOFTWARE_TAG",
     "build_exif",
     "build_png_text",
+    "build_xmp",
     "save_kwargs",
     "read_metadata",
 ]

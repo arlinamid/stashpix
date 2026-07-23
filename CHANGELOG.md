@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Windows Explorer showed a blank Author/Copyright for stego PNGs.** The fields
+  were written to EXIF (Artist/Copyright) and PNG text, and Explorer read our
+  EXIF *Date taken* fine — but Explorer sources the "Authors"/"Copyright" Details
+  fields from **XMP** (`dc:creator` / `dc:rights`), which we were not writing. A
+  minimal XMP packet is now embedded (PNG `iTXt`, and `xmp=` for JPEG/TIFF), so
+  those fields populate. EXIF and PNG text are still written for other tools.
+
 ## [1.5.0] - 2026-07-23
 
 Security, reliability, and provenance release. **Contains breaking changes** — see below.
