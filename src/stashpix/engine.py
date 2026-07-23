@@ -138,10 +138,10 @@ class StegoEngine:
     def embed_file(self, image_path: str, message: str, output_path: str,
                    config: Optional[EmbedConfig] = None) -> EmbedResult:
         config = config or EmbedConfig()
-        img = Image.open(image_path)
+        source = Image.open(image_path)          # keep for EXIF/ICC passthrough
         if config.enable_lsb:
-            assert_lossless(img, image_path, "input")
-        img = img.convert("RGB")
+            assert_lossless(source, image_path, "input")
+        img = source.convert("RGB")
 
         out_name = os.path.basename(output_path)
         result_img, info = self.embed(
@@ -149,8 +149,27 @@ class StegoEngine:
             source_image=os.path.basename(image_path),
             output_image=out_name,
         )
-        saved = save_lossless(result_img, output_path)
+
+        metadata = self._build_metadata(config, info) if getattr(
+            config, "write_metadata", True) else None
+        # Always pass the source so its EXIF/ICC are preserved, even when we are
+        # not stamping authorship fields.
+        saved = save_lossless(result_img, output_path, metadata=metadata, source=source)
+        if metadata is not None:
+            info["metadata"] = "written"
         return EmbedResult(output_path=saved, robust_id=info.get("robust_id"), info=info)
+
+    def _build_metadata(self, config: EmbedConfig, info: Dict[str, Any]):
+        """Assemble the authorship metadata stamped into the output file."""
+        from .core.metadata import ImageMetadata
+        import datetime as _dt
+        return ImageMetadata(
+            author=getattr(config, "author", "") or "",
+            copyright_notice=getattr(config, "copyright_notice", "") or "",
+            datetime=_dt.datetime.now().strftime("%Y:%m:%d %H:%M:%S"),
+            watermark_id=info.get("robust_id", "") or "",
+            signed_by=info.get("signed_by", "") or "",
+        )
 
     # ---------------------------------------------------------------- extract
     def extract(self, image: Image.Image, config: ExtractConfig

@@ -7,7 +7,7 @@ coercion so layers and the engine never duplicate it.
 from __future__ import annotations
 
 import os
-from typing import Tuple
+from typing import Optional, Tuple
 
 from PIL import Image
 
@@ -44,10 +44,21 @@ def coerce_lossless_path(path: str) -> str:
     return path
 
 
-def save_lossless(img: Image.Image, path: str) -> str:
-    """Save ``img`` losslessly, coercing the extension if needed. Returns path."""
+def save_lossless(img: Image.Image, path: str, *, metadata=None,
+                  source: Optional[Image.Image] = None) -> str:
+    """Save ``img`` losslessly, coercing the extension if needed. Returns path.
+
+    ``source`` (the original opened image) has its EXIF/ICC carried forward so a
+    plain save no longer strips the photographer's metadata; ``metadata`` layers
+    authorship fields on top. Pass neither for a bare save.
+    """
     path = coerce_lossless_path(path)
-    img.save(path)
+    if metadata is not None or source is not None:
+        from .metadata import save_kwargs
+        fmt = os.path.splitext(path)[1].lstrip(".").upper() or "PNG"
+        img.save(path, **save_kwargs(metadata, fmt=fmt, source=source))
+    else:
+        img.save(path)
     return path
 
 

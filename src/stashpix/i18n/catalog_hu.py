@@ -101,6 +101,9 @@ CATALOG = {
     "cli.arg.syncseal": "Opcionális SyncSeal geometriai sync vízjel (első használatkor letölti a modellt).",
     "cli.arg.try_wam": "WAM ROI lokalizálás a robust kiolvasás előtt.",
     "cli.arg.try_syncseal": "SyncSeal visszaigazítás a robust kiolvasás előtt.",
+    "cli.arg.author": "A kép metaadatába írt szerző (EXIF Artist). Nem bizonyíték.",
+    "cli.arg.copyright": "A kép metaadatába írt copyright szöveg. Nem bizonyíték.",
+    "cli.arg.no_metadata": "Ne írjon szerzőségi metaadatot (a forrás EXIF megőrződik).",
     "cli.arg.reference": "Regisztrált (enkódolt) referencia-kép a geo-szinkronhoz.",
     "cli.arg.output_file": "Ide írja a kiolvasott üzenetet (alap: stdout).",
     "cli.arg.show_info": "Diagnosztikai infó kiírása.",
@@ -153,7 +156,29 @@ CATALOG = {
     "gui.title": "Szteganográfia — több rétegű (LSB + robusztus DCT + látható)",
     "gui.tab.encode": "  🔒 Elrejtés  ",
     "gui.tab.decode": "  🔓 Kiolvasás  ",
+    "gui.tab.settings": "  ⚙ Beállítások  ",
     "gui.language": "Nyelv:",
+    "gui.settings.metadata_frame": "Kép metaadat (EXIF) — címke, nem bizonyíték",
+    "gui.settings.author": "Szerző:",
+    "gui.settings.copyright": "Copyright:",
+    "gui.settings.write_metadata": "Szerzőségi metaadat írása a mentett képekbe",
+    "gui.settings.metadata_note": (
+        "Ezek a mezők szabványos EXIF / PNG tagekbe kerülnek, hogy az Intéző vagy "
+        "a Lightroom is mutassa őket. Bárki szerkesztheti vagy letörölheti — ez "
+        "kényelmi funkció, NEM bizonyíték. A bizonyíték a lenti aláírás. A forrás "
+        "kép saját metaadata mindig megőrződik."
+    ),
+    "gui.settings.identity_frame": "Szerzőségi aláírás — a valódi bizonyíték",
+    "gui.settings.sign": "Minden kép aláírása a szerzőségi identitásommal (ajánlott)",
+    "gui.settings.identity_fp": "Identitás: {fp}",
+    "gui.settings.identity_none": "Identitás: még nincs (az első aláírt beágyazáskor jön létre).",
+    "gui.settings.export_public": "Publikus kulcs exportálása…",
+    "gui.settings.save": "Beállítások mentése",
+    "gui.settings.saved": "Beállítások elmentve.",
+    "gui.settings.exported": "Publikus kulcs exportálva.",
+    "gui.info.signed_ok": " • aláírva ✓ {signer}",
+    "gui.info.signed_bad": " • aláírás ✗ ({reason})",
+    "gui.err.key_required": "Kulcs megadása kötelező — adj meg egyet a folytatáshoz.",
     "gui.about": "Névjegy",
     "gui.about.title": "A stashpix névjegye",
     "gui.about.body": (

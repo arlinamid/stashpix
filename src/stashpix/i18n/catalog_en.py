@@ -101,6 +101,9 @@ CATALOG = {
     "cli.arg.syncseal": "Optional SyncSeal geometric sync watermark (downloads model on first use).",
     "cli.arg.try_wam": "Try WAM ROI localization before robust extract.",
     "cli.arg.try_syncseal": "Try SyncSeal unwarp before robust extract.",
+    "cli.arg.author": "Author name written to image metadata (EXIF Artist). Not proof.",
+    "cli.arg.copyright": "Copyright notice written to image metadata. Not proof.",
+    "cli.arg.no_metadata": "Do not write authorship metadata (source EXIF is still preserved).",
     "cli.arg.reference": "Registered (encoded) reference image for geo sync.",
     "cli.arg.output_file": "Write the recovered message here (default: stdout).",
     "cli.arg.show_info": "Print diagnostic info.",
@@ -153,7 +156,29 @@ CATALOG = {
     "gui.title": "Steganography — multi-layer (LSB + robust DCT + visible)",
     "gui.tab.encode": "  Hide  ",
     "gui.tab.decode": "  Extract  ",
+    "gui.tab.settings": "  Settings  ",
     "gui.language": "Language:",
+    "gui.settings.metadata_frame": "Image metadata (EXIF) — a label, not proof",
+    "gui.settings.author": "Author:",
+    "gui.settings.copyright": "Copyright:",
+    "gui.settings.write_metadata": "Write authorship metadata into saved images",
+    "gui.settings.metadata_note": (
+        "These fields are stamped into standard EXIF / PNG tags so tools like "
+        "Explorer or Lightroom show them. Anyone can edit or strip them — they "
+        "are a convenience, NOT proof. The proof is the signature below. Your "
+        "source image's own metadata is always preserved."
+    ),
+    "gui.settings.identity_frame": "Authorship signature — the actual proof",
+    "gui.settings.sign": "Sign each image with my authorship identity (recommended)",
+    "gui.settings.identity_fp": "Identity: {fp}",
+    "gui.settings.identity_none": "Identity: not created yet (created on first signed embed).",
+    "gui.settings.export_public": "Export public key…",
+    "gui.settings.save": "Save settings",
+    "gui.settings.saved": "Settings saved.",
+    "gui.settings.exported": "Public key exported.",
+    "gui.info.signed_ok": " • signed ✓ {signer}",
+    "gui.info.signed_bad": " • signature ✗ ({reason})",
+    "gui.err.key_required": "A key is required — enter one before continuing.",
     "gui.about": "About",
     "gui.about.title": "About stashpix",
     "gui.about.body": (

@@ -61,6 +61,9 @@ def _build_parser() -> argparse.ArgumentParser:
                    help=t("cli.arg.visible_opacity"))
     e.add_argument("--wam", action="store_true", help=t("cli.arg.wam"))
     e.add_argument("--syncseal", action="store_true", help=t("cli.arg.syncseal"))
+    e.add_argument("--author", default=None, help=t("cli.arg.author"))
+    e.add_argument("--copyright", default=None, help=t("cli.arg.copyright"))
+    e.add_argument("--no-metadata", action="store_true", help=t("cli.arg.no_metadata"))
     e.set_defaults(func=_cmd_embed)
 
     x = sub.add_parser("extract", help=t("cli.extract.help"))
@@ -133,12 +136,20 @@ def _cmd_embed(args) -> int:
         with open(args.message_file, "r", encoding="utf-8") as f:
             message = f.read()
 
+    from . import settings as user_settings
+    prefs = user_settings.load()
+    author = args.author if args.author is not None else prefs.get("author", "")
+    copyright_notice = (args.copyright if args.copyright is not None
+                        else prefs.get("copyright_notice", ""))
+
     engine = StegoEngine()
     config = EmbedConfig(
         key=args.key, lsb_nsym=args.nsym, lsb_copies=args.copies,
         robust_method=args.method, robust_strength=args.strength, robust_q=args.Q,
         visible_text=args.visible_text, visible_opacity=args.visible_opacity,
         enable_wam=args.wam, enable_syncseal=args.syncseal,
+        author=author, copyright_notice=copyright_notice,
+        write_metadata=not args.no_metadata,
     )
     result = engine.embed_file(args.image, message, args.output, config)
     print(t("cli.embed.done", path=result.output_path))

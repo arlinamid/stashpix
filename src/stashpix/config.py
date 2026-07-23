@@ -59,6 +59,13 @@ class EmbedConfig:
     # owner's Ed25519 identity so ownership is provable, not just present.
     sign: bool = True
 
+    # Image metadata (default on): preserve the source's EXIF/ICC and stamp
+    # authorship fields (author/copyright/watermark id/signer). A convenience
+    # label, NOT proof — anyone can edit EXIF; the signature is the proof.
+    write_metadata: bool = True
+    author: str = ""
+    copyright_notice: str = ""
+
     def __post_init__(self):
         # Single chokepoint for CLI, GUI, REST and library callers alike.
         # Before 1.5.0 a missing key silently fell back to the constant seed

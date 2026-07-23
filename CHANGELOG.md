@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Image metadata (EXIF / PNG tags) + a GUI Settings tab.**
+  - Embedding now **preserves the source image's EXIF and ICC profile** — the old
+    pipeline saved with a bare `img.save()` and silently stripped it.
+  - Optional authorship fields (author, copyright, plus the watermark UUID and
+    signer fingerprint) are stamped into standard EXIF and PNG text tags so
+    ordinary tools show them. CLI: `--author`, `--copyright`, `--no-metadata`.
+    Stated loudly everywhere: **metadata is a label, not proof** — it is trivially
+    editable; the signature is the proof, and metadata is never consulted for the
+    attribution verdict (regression-tested).
+  - A persistent settings store (`settings.json`) holds the user's author name,
+    copyright, and sign / write-metadata defaults.
+  - New **GUI Settings tab**: author + copyright fields, sign and write-metadata
+    toggles, identity fingerprint display, and "export public key". The GUI also
+    now requires a key (matching the mandatory-key rule) and shows the authorship
+    verdict on the Extract tab.
 - **Ed25519 authorship signatures — "prove I made this", not just "a watermark
   is present".** The robust watermark binds a UUID to the pixels; it could not,
   on its own, prove *who* claimed the image or *when*. The owner now holds a
