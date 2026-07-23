@@ -49,7 +49,7 @@ def _build_parser() -> argparse.ArgumentParser:
     g = e.add_mutually_exclusive_group(required=True)
     g.add_argument("-m", "--message", help=t("cli.arg.message"))
     g.add_argument("--message-file", help=t("cli.arg.message_file"))
-    e.add_argument("-k", "--key", default=None, help=t("cli.arg.key"))
+    e.add_argument("-k", "--key", required=True, help=t("cli.arg.key"))
     e.add_argument("--nsym", type=int, default=DEFAULT_NSYM, help=t("cli.arg.nsym"))
     e.add_argument("--copies", type=int, default=DEFAULT_COPIES, help=t("cli.arg.copies"))
     e.add_argument("--method", choices=["jnd", "qim"], default=DEFAULT_METHOD,
@@ -61,11 +61,14 @@ def _build_parser() -> argparse.ArgumentParser:
                    help=t("cli.arg.visible_opacity"))
     e.add_argument("--wam", action="store_true", help=t("cli.arg.wam"))
     e.add_argument("--syncseal", action="store_true", help=t("cli.arg.syncseal"))
+    e.add_argument("--author", default=None, help=t("cli.arg.author"))
+    e.add_argument("--copyright", default=None, help=t("cli.arg.copyright"))
+    e.add_argument("--no-metadata", action="store_true", help=t("cli.arg.no_metadata"))
     e.set_defaults(func=_cmd_embed)
 
     x = sub.add_parser("extract", help=t("cli.extract.help"))
     x.add_argument("-i", "--image", required=True, help=t("cli.arg.image_any"))
-    x.add_argument("-k", "--key", default=None, help=t("cli.arg.key"))
+    x.add_argument("-k", "--key", required=True, help=t("cli.arg.key"))
     x.add_argument("--method", choices=["jnd", "qim"], default=None, help=t("cli.arg.method"))
     x.add_argument("--strength", type=float, default=DEFAULT_STRENGTH, help=t("cli.arg.strength"))
     x.add_argument("-Q", type=float, default=DEFAULT_Q, help=t("cli.arg.q"))
@@ -78,7 +81,7 @@ def _build_parser() -> argparse.ArgumentParser:
     gg = sub.add_parser("extract-geo", help=t("cli.extract.help"))
     gg.add_argument("-i", "--image", required=True, help=t("cli.arg.image_any"))
     gg.add_argument("-r", "--reference", required=True, help=t("cli.arg.reference"))
-    gg.add_argument("-k", "--key", default=None, help=t("cli.arg.key"))
+    gg.add_argument("-k", "--key", required=True, help=t("cli.arg.key"))
     gg.add_argument("--method", choices=["jnd", "qim"], default=None, help=t("cli.arg.method"))
     gg.add_argument("--strength", type=float, default=DEFAULT_STRENGTH, help=t("cli.arg.strength"))
     gg.add_argument("--show-info", action="store_true", help=t("cli.arg.show_info"))
@@ -92,6 +95,17 @@ def _build_parser() -> argparse.ArgumentParser:
     v.add_argument("-k", "--key", default=None, help=t("cli.arg.key"))
     v.add_argument("--threshold", type=float, default=DEFAULT_VISIBLE_THRESHOLD)
     v.set_defaults(func=_cmd_verify_visible)
+
+    idp = sub.add_parser("identity", help=t("cli.identity.help"))
+    idp.add_argument("--show", action="store_true", help=t("cli.arg.identity_show"))
+    idp.add_argument("--create", action="store_true", help=t("cli.arg.identity_create"))
+    idp.add_argument("--export-public", metavar="PATH", help=t("cli.arg.identity_export_public"))
+    idp.add_argument("--export", metavar="PATH", help=t("cli.arg.identity_export"))
+    idp.add_argument("--import", dest="import_path", metavar="PATH",
+                     help=t("cli.arg.identity_import"))
+    idp.add_argument("--password", default=None, help=t("cli.arg.identity_password"))
+    idp.add_argument("--overwrite", action="store_true", help=t("cli.arg.identity_overwrite"))
+    idp.set_defaults(func=_cmd_identity)
 
     gui = sub.add_parser("gui", help=t("cli.gui.help"))
     gui.set_defaults(func=_cmd_gui)
@@ -122,12 +136,20 @@ def _cmd_embed(args) -> int:
         with open(args.message_file, "r", encoding="utf-8") as f:
             message = f.read()
 
+    from . import settings as user_settings
+    prefs = user_settings.load()
+    author = args.author if args.author is not None else prefs.get("author", "")
+    copyright_notice = (args.copyright if args.copyright is not None
+                        else prefs.get("copyright_notice", ""))
+
     engine = StegoEngine()
     config = EmbedConfig(
         key=args.key, lsb_nsym=args.nsym, lsb_copies=args.copies,
         robust_method=args.method, robust_strength=args.strength, robust_q=args.Q,
         visible_text=args.visible_text, visible_opacity=args.visible_opacity,
         enable_wam=args.wam, enable_syncseal=args.syncseal,
+        author=author, copyright_notice=copyright_notice,
+        write_metadata=not args.no_metadata,
     )
     result = engine.embed_file(args.image, message, args.output, config)
     print(t("cli.embed.done", path=result.output_path))
@@ -172,10 +194,54 @@ def _emit_extract(args, message: Optional[str], info: dict) -> int:
     else:
         print(t("cli.extract.header"))
         print(message)
+    auth = info.get("authorship")
+    if auth:
+        if auth.get("valid"):
+            print(t("cli.extract.signed_ok", signer=auth.get("signer"),
+                    created=auth.get("created")))
+        else:
+            print(t("cli.extract.signed_bad", reason=auth.get("reason")))
     if getattr(args, "show_info", False):
         print(t("cli.extract.layer", layer=info.get("layer")))
         for k, val in info.items():
             print(f"  {k}: {val}")
+    return 0
+
+
+def _cmd_identity(args) -> int:
+    from .core import authorship
+
+    if args.import_path:
+        if not args.password:
+            print(t("error.identity_export_password"))
+            return 2
+        with open(args.import_path, "rb") as f:
+            authorship.import_identity(f.read(), args.password, overwrite=args.overwrite)
+        print(t("cli.identity.imported",
+                fp=authorship.identity_fingerprint(create=False)))
+        return 0
+
+    priv = authorship.load_or_create_identity(create=args.create or args.show
+                                              or bool(args.export_public) or bool(args.export))
+    if priv is None:
+        print(t("cli.identity.none"))
+        return 2
+
+    fp = authorship.public_fingerprint(authorship.public_key_bytes(priv))
+    if args.export_public:
+        with open(args.export_public, "w", encoding="utf-8") as f:
+            f.write(authorship.export_public_pem(priv))
+        print(t("cli.identity.exported_public", path=args.export_public, fp=fp))
+    if args.export:
+        if not args.password:
+            print(t("error.identity_export_password"))
+            return 2
+        with open(args.export, "wb") as f:
+            f.write(authorship.export_identity(priv, args.password))
+        print(t("cli.identity.exported", path=args.export))
+    if args.show or not (args.export_public or args.export):
+        print(t("cli.identity.fingerprint", fp=fp))
+        print(authorship.export_public_pem(priv).strip())
     return 0
 
 

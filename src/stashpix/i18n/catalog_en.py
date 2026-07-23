@@ -38,6 +38,26 @@ CATALOG = {
         "[Self-check] The post-save decode does not match the original message — "
         "the output file is not trustworthy."
     ),
+    "error.robust_self_verify": (
+        "[Self-check] The robust watermark did not read back from this cover at "
+        "any strength ({detail}). The image is too flat or too small to carry it; "
+        "use a larger or more textured cover."
+    ),
+    "error.key_required": (
+        "[Key] A key is required. Without one the payload would be derived from a "
+        "fixed constant and anyone could read it. Pass -k/--key (CLI) or set "
+        "'key' on the config."
+    ),
+    "error.authorship": "[Authorship] Signature operation failed.",
+    "error.identity_unwrap": (
+        "[Identity] Could not unlock the authorship key ({detail}). It is bound "
+        "to this machine; restore it from a backup with 'identity --import'."
+    ),
+    "error.identity_exists": (
+        "[Identity] An authorship key already exists. Pass --overwrite to replace it."
+    ),
+    "error.identity_import_type": "[Identity] The imported key is not an Ed25519 key.",
+    "error.identity_export_password": "[Identity] Export requires a non-empty password.",
     "error.dependency_cv2": (
         "Geometric synchronization requires OpenCV: pip install opencv-python"
     ),
@@ -47,7 +67,6 @@ CATALOG = {
     # ------------------------------------------------------------- layer names
     "layer.lsb.name": "LSB (full message, lossless)",
     "layer.robust.name": "robust ID + registry",
-    "layer.edge_match.name": "registry fingerprint (edge + pHash)",
     "layer.syncseal.name": "SyncSeal geometric sync",
     "layer.wam.name": "WAM localization",
     "layer.visible.name": "visible watermark",
@@ -73,7 +92,7 @@ CATALOG = {
     "cli.arg.key": "Key/password for spreading (same key needed to decode).",
     "cli.arg.nsym": "Reed-Solomon ECC bytes per 255-byte block (default 64).",
     "cli.arg.copies": "Number of redundant LSB copies (default 3).",
-    "cli.arg.strength": "JND watermark strength (method=jnd).",
+    "cli.arg.strength": "Base JND watermark strength (method=jnd); embed raises it if needed.",
     "cli.arg.method": "Watermark method: jnd or qim (extract defaults to auto).",
     "cli.arg.q": "Fixed QIM step (method=qim).",
     "cli.arg.visible_text": "Optional visible watermark text (4th layer).",
@@ -82,6 +101,9 @@ CATALOG = {
     "cli.arg.syncseal": "Optional SyncSeal geometric sync watermark (downloads model on first use).",
     "cli.arg.try_wam": "Try WAM ROI localization before robust extract.",
     "cli.arg.try_syncseal": "Try SyncSeal unwarp before robust extract.",
+    "cli.arg.author": "Author name written to image metadata (EXIF Artist). Not proof.",
+    "cli.arg.copyright": "Copyright notice written to image metadata. Not proof.",
+    "cli.arg.no_metadata": "Do not write authorship metadata (source EXIF is still preserved).",
     "cli.arg.reference": "Registered (encoded) reference image for geo sync.",
     "cli.arg.output_file": "Write the recovered message here (default: stdout).",
     "cli.arg.show_info": "Print diagnostic info.",
@@ -93,6 +115,21 @@ CATALOG = {
     "cli.embed.visible": "  - visible watermark: {text!r} (opacity={opacity})",
     "cli.embed.wam": "  - WAM localization fingerprint enabled",
     "cli.embed.syncseal": "  - SyncSeal geometric sync enabled",
+    "cli.identity.help": "Manage the Ed25519 authorship identity used to sign claims.",
+    "cli.arg.identity_show": "Show the identity fingerprint and public key.",
+    "cli.arg.identity_create": "Create the identity now if it does not exist.",
+    "cli.arg.identity_export_public": "Write the shareable public key (PEM) to PATH.",
+    "cli.arg.identity_export": "Export the private identity (password-encrypted PKCS8) to PATH.",
+    "cli.arg.identity_import": "Import a password-encrypted private identity from PATH.",
+    "cli.arg.identity_password": "Password for --export / --import.",
+    "cli.arg.identity_overwrite": "Allow --import to replace an existing identity.",
+    "cli.identity.fingerprint": "Authorship identity: {fp}",
+    "cli.identity.none": "No authorship identity yet. Run 'identity --create' or embed once.",
+    "cli.identity.exported_public": "Public key written to {path} (identity {fp}).",
+    "cli.identity.exported": "Private identity exported (password-encrypted) to {path}.",
+    "cli.identity.imported": "Identity imported: {fp}",
+    "cli.extract.signed_ok": "[Authorship] VALID signature — signed by {signer} at {created}.",
+    "cli.extract.signed_bad": "[Authorship] Signature NOT valid ({reason}).",
     "cli.extract.header": "--- Recovered message ---",
     "cli.extract.lsb": "[LSB layer] Message recovered: {message!r}",
     "cli.extract.robust": "[Robust layer] LSB lost; ID={id} -> registry -> {message!r}",
@@ -119,7 +156,29 @@ CATALOG = {
     "gui.title": "Steganography — multi-layer (LSB + robust DCT + visible)",
     "gui.tab.encode": "  Hide  ",
     "gui.tab.decode": "  Extract  ",
+    "gui.tab.settings": "  Settings  ",
     "gui.language": "Language:",
+    "gui.settings.metadata_frame": "Image metadata (EXIF) — a label, not proof",
+    "gui.settings.author": "Author:",
+    "gui.settings.copyright": "Copyright:",
+    "gui.settings.write_metadata": "Write authorship metadata into saved images",
+    "gui.settings.metadata_note": (
+        "These fields are stamped into standard EXIF / PNG tags so tools like "
+        "Explorer or Lightroom show them. Anyone can edit or strip them — they "
+        "are a convenience, NOT proof. The proof is the signature below. Your "
+        "source image's own metadata is always preserved."
+    ),
+    "gui.settings.identity_frame": "Authorship signature — the actual proof",
+    "gui.settings.sign": "Sign each image with my authorship identity (recommended)",
+    "gui.settings.identity_fp": "Identity: {fp}",
+    "gui.settings.identity_none": "Identity: not created yet (created on first signed embed).",
+    "gui.settings.export_public": "Export public key…",
+    "gui.settings.save": "Save settings",
+    "gui.settings.saved": "Settings saved.",
+    "gui.settings.exported": "Public key exported.",
+    "gui.info.signed_ok": " • signed ✓ {signer}",
+    "gui.info.signed_bad": " • signature ✗ ({reason})",
+    "gui.err.key_required": "A key is required — enter one before continuing.",
     "gui.about": "About",
     "gui.about.title": "About stashpix",
     "gui.about.body": (

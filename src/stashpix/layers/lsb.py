@@ -26,10 +26,18 @@ from ..core.coding import (
     hamming_decode_bits,
 )
 from ..core.crypto import aead_decrypt, aead_encrypt, pack_encrypted, unpack_encrypted
-from ..core.keys import derive_key_bytes, derive_seed
+from ..core.keys import (
+    CONTENT_SALT_BYTES,
+    derive_content_key,
+    derive_seed,
+    new_content_salt,
+)
 from ..exceptions import CapacityError, DecodeError, SelfVerifyError, StegoError
 
-LSB_FORMAT_VERSION = 2
+# v3 prefixes the payload with a fresh random salt so the content key is no
+# longer derived from the password alone. v2 and earlier used one hardcoded salt
+# for every image ever produced; those payloads are rejected rather than read.
+LSB_FORMAT_VERSION = 3
 HEADER_REPEATS_BASE = 25
 LEN_FIELD_BITS = 32
 NSYM_FIELD_BITS = 8
@@ -119,10 +127,15 @@ class LsbLayer(Layer):
 
         rs_encoded = RSCodec(nsym).encode(message.encode("utf-8"))
         rs_len = len(rs_encoded)
-        sym_key = derive_key_bytes(config.key, context="stashpix-lsb-v2")
+        # Fresh salt per embed: the same message under the same password must not
+        # produce the same ciphertext twice, and precomputation against a fixed
+        # salt must not help. The salt is plaintext in the payload by design.
+        salt = new_content_salt()
+        sym_key = derive_content_key(config.key, salt)
         nonce, ciphertext = aead_encrypt(
-            sym_key, rs_encoded, associated_data=f"v{LSB_FORMAT_VERSION}:{rs_len}:{nsym}:{copies}".encode())
-        payload_bytes = pack_encrypted(nonce, ciphertext)
+            sym_key, rs_encoded,
+            associated_data=f"v{LSB_FORMAT_VERSION}:{rs_len}:{nsym}:{copies}".encode())
+        payload_bytes = salt + pack_encrypted(nonce, ciphertext)
         payload_bits = bytes_to_bits(payload_bytes)
         L = len(payload_bits)
 
@@ -180,7 +193,6 @@ class LsbLayer(Layer):
         if version != LSB_FORMAT_VERSION:
             raise DecodeError(key="error.decode_params")
 
-        sym_key = derive_key_bytes(config.key, context="stashpix-lsb-v2")
         aad = f"v{version}:{rs_len}:{nsym}:{copies}".encode()
 
         # Probe payload length from first copy (encrypted blob size varies with RS)
@@ -195,7 +207,7 @@ class LsbLayer(Layer):
         # Binary search copy length is hard; store encrypted byte length in rs_len field? 
         # rs_len IS the RS byte length; encrypted = nonce(12)+ct(rs_len+16 tag) approx
         from ..core.crypto import _NONCE_LEN, _TAG_OVERHEAD
-        enc_byte_len = _NONCE_LEN + rs_len + _TAG_OVERHEAD
+        enc_byte_len = CONTENT_SALT_BYTES + _NONCE_LEN + rs_len + _TAG_OVERHEAD
         L = enc_byte_len * 8
 
         if probe_len + copies * L > capacity_bits:
@@ -215,6 +227,10 @@ class LsbLayer(Layer):
         def try_decrypt(bits) -> Optional[Tuple[bytes, int]]:
             try:
                 blob = bits_to_bytes(bits.tolist())
+                # The salt is carried in the clear ahead of the AEAD blob, so a
+                # corrupted salt simply yields a key that fails authentication.
+                salt, blob = blob[:CONTENT_SALT_BYTES], blob[CONTENT_SALT_BYTES:]
+                sym_key = derive_content_key(config.key, salt)
                 nonce, ciphertext = unpack_encrypted(blob)
                 rs_blob = aead_decrypt(sym_key, nonce, ciphertext, associated_data=aad)
                 if len(rs_blob) != rs_len:

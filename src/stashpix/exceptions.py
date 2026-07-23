@@ -60,6 +60,12 @@ class DependencyError(StegoError):
     default_key = "error.generic"
 
 
+class AuthorshipError(StegoError):
+    """Authorship identity / signature operation failed."""
+
+    default_key = "error.authorship"
+
+
 __all__ = [
     "StegoError",
     "LossyFormatError",
@@ -68,4 +74,5 @@ __all__ = [
     "SelfVerifyError",
     "RegistryError",
     "DependencyError",
+    "AuthorshipError",
 ]

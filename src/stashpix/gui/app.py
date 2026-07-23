@@ -238,11 +238,15 @@ class StegoGUI(tk.Tk):
         self.nb.pack(fill="both", expand=True, padx=10, pady=(6, 4))
         self.encode_tab = ttk.Frame(self.nb, padding=12)
         self.decode_tab = ttk.Frame(self.nb, padding=12)
+        self.settings_tab = ttk.Frame(self.nb, padding=12)
         self.nb.add(self.encode_tab)
         self.nb.add(self.decode_tab)
+        self.nb.add(self.settings_tab)
         self._tr(lambda s: self.nb.tab(0, text=s), "gui.tab.encode")
         self._tr(lambda s: self.nb.tab(1, text=s), "gui.tab.decode")
+        self._tr(lambda s: self.nb.tab(2, text=s), "gui.tab.settings")
 
+        self._build_settings_tab()   # before encode: encode reads its vars
         self._build_encode_tab()
         self._build_decode_tab()
 
@@ -267,6 +271,92 @@ class StegoGUI(tk.Tk):
         w.grid(**grid)
         self._tr(lambda s, ww=w: ww.configure(text=s), key)
         return w
+
+    # --------------------------------------------------------- SETTINGS tab
+    def _build_settings_tab(self):
+        from .. import settings as user_settings
+        prefs = user_settings.load()
+        tb = self.settings_tab
+        tb.columnconfigure(1, weight=1)
+
+        # Authorship metadata (EXIF) — a label, not proof.
+        mf = ttk.LabelFrame(tb, padding=10)
+        mf.grid(row=0, column=0, columnspan=2, sticky="ew")
+        mf.columnconfigure(1, weight=1)
+        self._tr(lambda s, w=mf: w.configure(text=s), "gui.settings.metadata_frame")
+
+        self._mk_label(mf, "gui.settings.author", row=0, column=0, sticky="w", pady=3)
+        self.set_author = tk.StringVar(value=prefs.get("author", ""))
+        ttk.Entry(mf, textvariable=self.set_author).grid(
+            row=0, column=1, sticky="ew", padx=6, pady=3)
+
+        self._mk_label(mf, "gui.settings.copyright", row=1, column=0, sticky="w", pady=3)
+        self.set_copyright = tk.StringVar(value=prefs.get("copyright_notice", ""))
+        ttk.Entry(mf, textvariable=self.set_copyright).grid(
+            row=1, column=1, sticky="ew", padx=6, pady=3)
+
+        self.set_write_metadata = tk.BooleanVar(value=prefs.get("write_metadata", True))
+        cb_wm = ttk.Checkbutton(mf, variable=self.set_write_metadata)
+        cb_wm.grid(row=2, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        self._tr(lambda s, w=cb_wm: w.configure(text=s), "gui.settings.write_metadata")
+
+        note = ttk.Label(mf, style="Hint.TLabel", wraplength=760, justify="left")
+        note.grid(row=3, column=0, columnspan=2, sticky="w", pady=(4, 0))
+        self._tr(lambda s, w=note: w.configure(text=s), "gui.settings.metadata_note")
+
+        # Authorship signature + identity — the actual proof.
+        sf = ttk.LabelFrame(tb, padding=10)
+        sf.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(10, 0))
+        sf.columnconfigure(1, weight=1)
+        self._tr(lambda s, w=sf: w.configure(text=s), "gui.settings.identity_frame")
+
+        self.set_sign = tk.BooleanVar(value=prefs.get("sign", True))
+        cb_sign = ttk.Checkbutton(sf, variable=self.set_sign)
+        cb_sign.grid(row=0, column=0, columnspan=2, sticky="w")
+        self._tr(lambda s, w=cb_sign: w.configure(text=s), "gui.settings.sign")
+
+        self.set_identity = tk.StringVar(value=self._identity_label())
+        ttk.Label(sf, textvariable=self.set_identity, style="Hint.TLabel").grid(
+            row=1, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        self._mk_button(sf, "gui.settings.export_public", self._export_public_key,
+                        row=2, column=0, sticky="w", pady=(6, 0))
+
+        self._mk_button(tb, "gui.settings.save", self._save_settings,
+                        style="Accent.TButton", row=2, column=0, sticky="w", pady=(12, 0))
+
+    def _identity_label(self) -> str:
+        try:
+            from ..core import authorship
+            fp = authorship.identity_fingerprint(create=False)
+        except Exception:
+            fp = None
+        return t("gui.settings.identity_none") if not fp \
+            else t("gui.settings.identity_fp", fp=fp)
+
+    def _save_settings(self):
+        from .. import settings as user_settings
+        user_settings.save({
+            "author": self.set_author.get().strip(),
+            "copyright_notice": self.set_copyright.get().strip(),
+            "sign": self.set_sign.get(),
+            "write_metadata": self.set_write_metadata.get(),
+        })
+        self._info("gui.settings.saved")
+
+    def _export_public_key(self):
+        from ..core import authorship
+        path = filedialog.asksaveasfilename(
+            defaultextension=".pem", filetypes=[("PEM", "*.pem"), ("*", "*.*")])
+        if not path:
+            return
+        try:
+            priv = authorship.load_or_create_identity(create=True)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(authorship.export_public_pem(priv))
+            self.set_identity.set(self._identity_label())
+            self._info("gui.settings.exported")
+        except Exception as e:  # noqa: BLE001
+            self._error_text(str(e))
 
     # ---------------------------------------------------------- ENCODE tab
     def _build_encode_tab(self):
@@ -518,7 +608,9 @@ class StegoGUI(tk.Tk):
             return self._error("gui.err.pick_output")
         if not msg:
             return self._error("gui.err.empty_message")
-        key = self.enc_key.get() or None
+        key = self.enc_key.get().strip()
+        if not key:
+            return self._error("gui.err.key_required")
         try:
             nsym = int(self.enc_nsym.get())
             copies = int(self.enc_copies.get())
@@ -538,7 +630,11 @@ class StegoGUI(tk.Tk):
                              lsb_self_verify=self.enc_verify.get(),
                              robust_strength=strength, visible_text=visible,
                              enable_wam=self.enc_wam.get(),
-                             enable_syncseal=self.enc_syncseal.get())
+                             enable_syncseal=self.enc_syncseal.get(),
+                             sign=self.set_sign.get(),
+                             write_metadata=self.set_write_metadata.get(),
+                             author=self.set_author.get().strip(),
+                             copyright_notice=self.set_copyright.get().strip())
         self._busy(True, "gui.status.encoding")
 
         def work():
@@ -555,7 +651,9 @@ class StegoGUI(tk.Tk):
         inp = self.dec_input.get().strip()
         if not inp or not os.path.exists(inp):
             return self._error("gui.err.pick_image")
-        key = self.dec_key.get() or None
+        key = self.dec_key.get().strip()
+        if not key:
+            return self._error("gui.err.key_required")
         ref = self.dec_ref.get().strip()
         if ref and not os.path.exists(ref):
             return self._error("gui.err.pick_image")
@@ -613,6 +711,12 @@ class StegoGUI(tk.Tk):
     def _error(self, key):
         messagebox.showerror(t("gui.msg.error"), t(key))
 
+    def _error_text(self, text):
+        messagebox.showerror(t("gui.msg.error"), text)
+
+    def _info(self, key):
+        self.status.set(t(key))
+
     def _busy(self, on, status_key=None):
         state = "disabled" if on else "normal"
         self.enc_btn.configure(state=state)
@@ -662,6 +766,12 @@ class StegoGUI(tk.Tk):
                        copies=li["copies_total"], errors=li["rs_errors_corrected"])
         elif info.get("robust_info") and info["robust_info"].get("id"):
             detail = t("gui.info.id", id=info["robust_info"]["id"])
+        auth = info.get("authorship")
+        if auth:
+            if auth.get("valid"):
+                detail += "  " + t("gui.info.signed_ok", signer=auth.get("signer"))
+            else:
+                detail += "  " + t("gui.info.signed_bad", reason=auth.get("reason"))
         self.dec_info.configure(text=f"{t('cli.extract.layer', layer=layer)}{detail}")
         self.status.set(t("gui.status.decoded"))
 

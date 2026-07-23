@@ -12,12 +12,13 @@ from ..core.keys import registry_master_key
 from ..core.perceptual import dhash_hex, edge_hash_hex, hamming_hex, phash_hex
 from ..paths import REFS_DIRNAME, default_registry_path
 
-REGISTRY_FORMAT = "stashpix-registry-v1"
+# v2 binds the encryption key to this user+machine, so lifting the key file
+# alone onto another box does not decrypt a copied registry. v1 (unbound) is
+# still read so an existing registry survives the upgrade -- it is re-encrypted
+# as v2 on the next write.
+REGISTRY_FORMAT = "stashpix-registry-v2"
+LEGACY_REGISTRY_FORMAT = "stashpix-registry-v1"
 PHASH_TOP_K = 10
-FINGERPRINT_MAX_DIST = 18
-FINGERPRINT_MIN_GAP = 4
-FINGERPRINT_RELAXED_MAX_DIST = 64
-FINGERPRINT_RELAXED_MIN_GAP = 8
 
 
 class Registry:
@@ -33,15 +34,16 @@ class Registry:
             wrapper = json.load(f)
         if not isinstance(wrapper, dict):
             return {}
-        if wrapper.get("format") != REGISTRY_FORMAT:
+        fmt = wrapper.get("format")
+        if fmt not in (REGISTRY_FORMAT, LEGACY_REGISTRY_FORMAT):
             # Legacy plaintext JSON (pre-1.3.0) — read directly and re-save encrypted.
             if wrapper and all(isinstance(v, dict) for v in wrapper.values()):
                 return wrapper
             return {}
         nonce = b64_decode(wrapper["nonce"])
         ciphertext = b64_decode(wrapper["ciphertext"])
-        key = registry_master_key()
-        raw = aead_decrypt(key, nonce, ciphertext, associated_data=REGISTRY_FORMAT.encode())
+        key = registry_master_key(bind_machine=fmt == REGISTRY_FORMAT)
+        raw = aead_decrypt(key, nonce, ciphertext, associated_data=fmt.encode())
         data = json.loads(raw.decode("utf-8"))
         return data if isinstance(data, dict) else {}
 
@@ -69,6 +71,19 @@ class Registry:
             "meta": meta or {},
         }
         self._save_plain(data)
+
+    def set_signature(self, id_hex: str, record: Dict[str, Any]) -> bool:
+        """Attach an authorship signature record to an existing entry."""
+        data = self._load_plain()
+        if id_hex not in data:
+            return False
+        data[id_hex]["signature"] = record
+        self._save_plain(data)
+        return True
+
+    def signature_for(self, id_hex: str) -> Optional[Dict[str, Any]]:
+        entry = self.get(id_hex)
+        return entry.get("signature") if entry else None
 
     def refs_dir(self) -> str:
         return os.path.join(os.path.dirname(os.path.abspath(self.path)), REFS_DIRNAME)
@@ -109,6 +124,10 @@ class Registry:
                     return cand
         return None
 
+    # NOTE: perceptual hashes only SHORTLIST candidates for the SIFT/robust path.
+    # They must never attribute a message on their own — an unwatermarked copy of
+    # the original cover has distance ~0 from the stored reference (the watermark
+    # is invisible), so a hash match is not evidence that the image carries one.
     def _fingerprint_distance(self, query_image, meta: Dict[str, Any]) -> int:
         query_p = phash_hex(query_image)
         query_d = dhash_hex(query_image)
@@ -124,7 +143,11 @@ class Registry:
         return dist
 
     def ranked_reference_ids(self, query_image, *, top_k: int = PHASH_TOP_K) -> List[Tuple[str, int]]:
-        """Return registry IDs sorted by perceptual-hash distance (lowest first)."""
+        """Shortlist registry IDs by perceptual-hash distance (lowest first).
+
+        Ordering hint only — every candidate must still be confirmed by reading
+        the actual watermark. See the note above ``_fingerprint_distance``.
+        """
         scored: List[Tuple[str, int]] = []
         for id_hex, entry in self._load_plain().items():
             if not self.reference_path(id_hex):
@@ -133,20 +156,6 @@ class Registry:
             scored.append((id_hex, self._fingerprint_distance(query_image, meta)))
         scored.sort(key=lambda x: x[1])
         return scored[:top_k] if top_k > 0 else scored
-
-    def resolve_fingerprint(self, query_image, *,
-                            max_dist: int = FINGERPRINT_MAX_DIST,
-                            min_gap: int = FINGERPRINT_MIN_GAP) -> Optional[Tuple[str, int]]:
-        """Match query to a single registry entry by stored fingerprints (not in-image bits)."""
-        ranked = self.ranked_reference_ids(query_image, top_k=2)
-        if not ranked:
-            return None
-        best_id, best_dist = ranked[0]
-        if best_dist > max_dist:
-            return None
-        if len(ranked) > 1 and ranked[1][1] - best_dist < min_gap:
-            return None
-        return best_id, best_dist
 
     def get(self, id_hex: str) -> Optional[Dict[str, Any]]:
         return self._load_plain().get(id_hex)
@@ -167,12 +176,4 @@ class Registry:
         return False
 
 
-__all__ = [
-    "Registry",
-    "default_registry_path",
-    "PHASH_TOP_K",
-    "FINGERPRINT_MAX_DIST",
-    "FINGERPRINT_MIN_GAP",
-    "FINGERPRINT_RELAXED_MAX_DIST",
-    "FINGERPRINT_RELAXED_MIN_GAP",
-]
+__all__ = ["Registry", "default_registry_path", "PHASH_TOP_K"]

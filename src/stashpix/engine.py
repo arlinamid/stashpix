@@ -9,14 +9,13 @@ Extract order: LSB -> optional WAM ROI -> optional SyncSeal unwarp -> robust ID
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Tuple
 
 from PIL import Image
 
 from .config import EmbedConfig, ExtractConfig, VerifyConfig
 from .core.imaging import open_rgb, assert_lossless, save_lossless
-from .core.keys import embed_key_tag
 from .exceptions import StegoError
 from .i18n import t
 from .layers import (
@@ -50,6 +49,26 @@ class StegoEngine:
         self.lsb = LsbLayer()
         self.geometry = GeometricSynchronizer()
 
+    def _sign_entry(self, id_hex: str, message: str, info: Dict[str, Any]) -> None:
+        """Sign the freshly stored registry claim with the owner's identity.
+
+        Best-effort: a signing failure must not lose an otherwise-good embed, so
+        it is reported in ``info`` rather than raised. The registry ``created``
+        timestamp is read back so the signature covers the exact stored value.
+        """
+        from .core import authorship
+        try:
+            entry = self.registry.get(id_hex) or {}
+            priv = authorship.load_or_create_identity(create=True)
+            record = authorship.sign_claim(
+                priv, watermark_id=id_hex, message=message,
+                created=entry.get("created") or authorship.signed_time())
+            self.registry.set_signature(id_hex, record)
+            info["signed_by"] = record["fingerprint"]
+            info["layers"].append("signature")
+        except Exception as exc:  # noqa: BLE001 - never fail the embed on this
+            info["sign_failed"] = str(exc)
+
     # ------------------------------------------------------------------ embed
     def embed(self, image: Image.Image, message: str, config: EmbedConfig,
               *, source_image: str = "", output_image: str = "") -> Tuple[Image.Image, Dict[str, Any]]:
@@ -74,6 +93,9 @@ class StegoEngine:
             info["robust"] = outcome.info
             info["robust_id"] = outcome.info.get("id")
             info["layers"].append("robust")
+
+            if getattr(config, "sign", True) and info.get("robust_id"):
+                self._sign_entry(info["robust_id"], message, info)
 
         if getattr(config, "enable_wam", False):
             if not info.get("robust_id"):
@@ -116,10 +138,10 @@ class StegoEngine:
     def embed_file(self, image_path: str, message: str, output_path: str,
                    config: Optional[EmbedConfig] = None) -> EmbedResult:
         config = config or EmbedConfig()
-        img = Image.open(image_path)
+        source = Image.open(image_path)          # keep for EXIF/ICC passthrough
         if config.enable_lsb:
-            assert_lossless(img, image_path, "input")
-        img = img.convert("RGB")
+            assert_lossless(source, image_path, "input")
+        img = source.convert("RGB")
 
         out_name = os.path.basename(output_path)
         result_img, info = self.embed(
@@ -127,12 +149,67 @@ class StegoEngine:
             source_image=os.path.basename(image_path),
             output_image=out_name,
         )
-        saved = save_lossless(result_img, output_path)
+
+        metadata = self._build_metadata(config, info) if getattr(
+            config, "write_metadata", True) else None
+        # Always pass the source so its EXIF/ICC are preserved, even when we are
+        # not stamping authorship fields.
+        saved = save_lossless(result_img, output_path, metadata=metadata, source=source)
+        if metadata is not None:
+            info["metadata"] = "written"
         return EmbedResult(output_path=saved, robust_id=info.get("robust_id"), info=info)
+
+    def _build_metadata(self, config: EmbedConfig, info: Dict[str, Any]):
+        """Assemble the authorship metadata stamped into the output file."""
+        from .core.metadata import ImageMetadata
+        import datetime as _dt
+        return ImageMetadata(
+            author=getattr(config, "author", "") or "",
+            copyright_notice=getattr(config, "copyright_notice", "") or "",
+            datetime=_dt.datetime.now().strftime("%Y:%m:%d %H:%M:%S"),
+            watermark_id=info.get("robust_id", "") or "",
+            signed_by=info.get("signed_by", "") or "",
+        )
 
     # ---------------------------------------------------------------- extract
     def extract(self, image: Image.Image, config: ExtractConfig
                 ) -> Tuple[Optional[str], Dict[str, Any]]:
+        """Extract, then attach an authorship verdict for any registry claim."""
+        img = image.convert("RGB")
+        msg, info = self._extract_core(img, config)
+        if getattr(config, "verify_signature", True):
+            self._attach_authorship(img, msg, info, config)
+        return msg, info
+
+    def _attach_authorship(self, img: Image.Image, message: Optional[str],
+                           info: Dict[str, Any], config: ExtractConfig) -> None:
+        """Verify the signature on the recovered registry claim, if any.
+
+        The signature binds the watermark UUID to the owner's key. When the
+        message came from LSB the robust ID was never read, so recover it now —
+        the watermark is still in the pixels and the owner still wants the claim
+        checked. The message that was signed is the registry's stored message.
+        """
+        if message is None:
+            return
+        id_hex = info.get("robust_id")
+        if not id_hex:
+            result = self.robust.extract(img, config)
+            if result is not None:
+                id_hex = result.info.get("id")
+                info.setdefault("robust_id", id_hex)
+        if not id_hex:
+            return
+        from .core import authorship
+        record = self.registry.signature_for(id_hex)
+        stored = self.registry.message_for(id_hex)
+        result = authorship.verify_claim(
+            record, watermark_id=id_hex,
+            message=stored if stored is not None else message)
+        info["authorship"] = result.as_dict()
+
+    def _extract_core(self, image: Image.Image, config: ExtractConfig
+                      ) -> Tuple[Optional[str], Dict[str, Any]]:
         """Graceful degradation: LSB first, then robust ID + registry."""
         img = image.convert("RGB")
         info: Dict[str, Any] = {"layer": None}
@@ -207,10 +284,6 @@ class StegoEngine:
             if msg is not None:
                 return msg, info
 
-        msg = self._edge_match_extract(img, config, info)
-        if msg is not None:
-            return msg, info
-
         return None, info
 
     def _registry_ids_matching_fingerprint(self, fingerprint_hex: str) -> list:
@@ -275,45 +348,6 @@ class StegoEngine:
                             "phash_shortlist": len(candidate_ids), "best": best}
         return None
 
-    def _edge_match_extract(self, img: Image.Image, config: ExtractConfig,
-                            info: Dict[str, Any]) -> Optional[str]:
-        if not getattr(config, "edge_match", True):
-            return None
-        strict = self.registry.resolve_fingerprint(
-            img,
-            max_dist=getattr(config, "edge_match_max_dist", 18),
-            min_gap=getattr(config, "edge_match_min_gap", 4),
-        )
-        relaxed = None
-        if strict is None and getattr(config, "edge_match_relaxed", True):
-            relaxed = self.registry.resolve_fingerprint(
-                img,
-                max_dist=getattr(config, "edge_match_relaxed_max_dist", 64),
-                min_gap=getattr(config, "edge_match_relaxed_min_gap", 8),
-            )
-        resolved = strict or relaxed
-        if resolved is None:
-            return None
-        id_hex, dist = resolved
-        entry = self.registry.get(id_hex)
-        meta = (entry or {}).get("meta") or {}
-        stored_tag = meta.get("key_tag")
-        if stored_tag is None:
-            return None
-        if embed_key_tag(config.key) != stored_tag:
-            return None
-        message = self.registry.message_for(id_hex)
-        if message is None:
-            return None
-        info["layer"] = t("layer.edge_match.name")
-        info["layer_key"] = "edge_match"
-        info["robust_id"] = id_hex
-        info["edge_match"] = {
-            "distance": dist,
-            "mode": "strict" if strict is not None else "relaxed",
-        }
-        return message
-
     def _blind_extract(self, img: Image.Image, config: ExtractConfig,
                        info: Dict[str, Any]) -> Optional[str]:
         try:
@@ -349,8 +383,7 @@ class StegoEngine:
         config = config or ExtractConfig()
         recv = recv.convert("RGB")
 
-        pre_geo = replace(config, edge_match=False)
-        msg, info = self.extract(recv, pre_geo)
+        msg, info = self.extract(recv, config)
         info.setdefault("geo", {})["used"] = False
         if msg is not None:
             return msg, info
@@ -367,18 +400,12 @@ class StegoEngine:
                 return result.message, info
 
         if not getattr(config, "morph_geo", True):
-            msg = self._edge_match_extract(recv, config, info)
-            if msg is not None:
-                return msg, info
             return None, info
 
         warped_tps, stat_tps = self.geometry.warp_tps_to_reference(
             recv, ref.convert("RGB"))
         info["geo_tps"] = {"used": True, "registered": warped_tps is not None, **stat_tps}
         if warped_tps is None:
-            msg = self._edge_match_extract(recv, config, info)
-            if msg is not None:
-                return msg, info
             return None, info
 
         result = self.robust.extract(warped_tps, config)
@@ -388,9 +415,6 @@ class StegoEngine:
             info["robust_info"] = result.info
             info["robust_id"] = result.info.get("id")
             return result.message, info
-        msg = self._edge_match_extract(recv, config, info)
-        if msg is not None:
-            return msg, info
         return None, info
 
     def extract_geo_file(self, image_path: str, reference_path: str,

@@ -38,6 +38,26 @@ CATALOG = {
         "[Önjavító ellenőrzés] A mentés utáni dekódolás NEM egyezik az eredeti "
         "üzenettel — a kimeneti fájl nem megbízható."
     ),
+    "error.robust_self_verify": (
+        "[Önellenőrzés] A robusztus vízjel egyik erősségen sem olvasható vissza "
+        "erről a borítóképről ({detail}). A kép túl sima vagy túl kicsi hozzá — "
+        "használj nagyobb vagy texturáltabb borítót."
+    ),
+    "error.key_required": (
+        "[Kulcs] Kulcs megadása kötelező. Nélküle a payload egy fix konstansból "
+        "származna, és bárki kiolvashatná. Add meg a -k/--key kapcsolót (CLI), "
+        "vagy állítsd be a 'key' mezőt a configban."
+    ),
+    "error.authorship": "[Szerzőség] Az aláírási művelet sikertelen.",
+    "error.identity_unwrap": (
+        "[Identitás] Nem sikerült feloldani a szerzőségi kulcsot ({detail}). Ez a "
+        "géphez van kötve; állítsd vissza mentésből: 'identity --import'."
+    ),
+    "error.identity_exists": (
+        "[Identitás] Már létezik szerzőségi kulcs. A cseréhez add meg: --overwrite."
+    ),
+    "error.identity_import_type": "[Identitás] Az importált kulcs nem Ed25519 kulcs.",
+    "error.identity_export_password": "[Identitás] Az exporthoz nem üres jelszó kell.",
     "error.dependency_cv2": (
         "A geometriai szinkronhoz OpenCV kell: pip install opencv-python"
     ),
@@ -47,7 +67,6 @@ CATALOG = {
     # ------------------------------------------------------------- réteg-nevek
     "layer.lsb.name": "LSB (teljes üzenet, veszteségmentes)",
     "layer.robust.name": "robusztus ID + registry",
-    "layer.edge_match.name": "registry ujjlenyomat (él + pHash)",
     "layer.syncseal.name": "SyncSeal geometriai szinkron",
     "layer.wam.name": "WAM lokalizálás",
     "layer.visible.name": "látható vízjel",
@@ -73,7 +92,7 @@ CATALOG = {
     "cli.arg.key": "Kulcs/jelszó a szétszóráshoz (ugyanaz kell dekódoláshoz).",
     "cli.arg.nsym": "Reed-Solomon ECC bájt / 255 bájtos blokk (alap: 64).",
     "cli.arg.copies": "Redundáns LSB-másolatok száma (alap: 3).",
-    "cli.arg.strength": "JND vízjel-erősség (method=jnd).",
+    "cli.arg.strength": "Alap JND vízjel-erősség (method=jnd); a beágyazás szükség esetén emeli.",
     "cli.arg.method": "Vízjel módszer: jnd vagy qim (kiolvasásnál alap: auto).",
     "cli.arg.q": "Fix QIM-lépésköz (method=qim).",
     "cli.arg.visible_text": "Opcionális látható vízjel szövege (4. réteg).",
@@ -82,6 +101,9 @@ CATALOG = {
     "cli.arg.syncseal": "Opcionális SyncSeal geometriai sync vízjel (első használatkor letölti a modellt).",
     "cli.arg.try_wam": "WAM ROI lokalizálás a robust kiolvasás előtt.",
     "cli.arg.try_syncseal": "SyncSeal visszaigazítás a robust kiolvasás előtt.",
+    "cli.arg.author": "A kép metaadatába írt szerző (EXIF Artist). Nem bizonyíték.",
+    "cli.arg.copyright": "A kép metaadatába írt copyright szöveg. Nem bizonyíték.",
+    "cli.arg.no_metadata": "Ne írjon szerzőségi metaadatot (a forrás EXIF megőrződik).",
     "cli.arg.reference": "Regisztrált (enkódolt) referencia-kép a geo-szinkronhoz.",
     "cli.arg.output_file": "Ide írja a kiolvasott üzenetet (alap: stdout).",
     "cli.arg.show_info": "Diagnosztikai infó kiírása.",
@@ -93,6 +115,21 @@ CATALOG = {
     "cli.embed.visible": "  - látható vízjel: {text!r} (opacity={opacity})",
     "cli.embed.wam": "  - WAM lokalizáló ujjlenyomat bekapcsolva",
     "cli.embed.syncseal": "  - SyncSeal geometriai sync bekapcsolva",
+    "cli.identity.help": "Az aláíráshoz használt Ed25519 szerzőségi identitás kezelése.",
+    "cli.arg.identity_show": "Az identitás ujjlenyomatának és publikus kulcsának kiírása.",
+    "cli.arg.identity_create": "Identitás létrehozása most, ha még nincs.",
+    "cli.arg.identity_export_public": "A megosztható publikus kulcs (PEM) kiírása ide: PATH.",
+    "cli.arg.identity_export": "A privát identitás exportja (jelszóval titkosított PKCS8) ide: PATH.",
+    "cli.arg.identity_import": "Jelszóval titkosított privát identitás importja innen: PATH.",
+    "cli.arg.identity_password": "Jelszó a --export / --import művelethez.",
+    "cli.arg.identity_overwrite": "Az --import felülírhassa a meglévő identitást.",
+    "cli.identity.fingerprint": "Szerzőségi identitás: {fp}",
+    "cli.identity.none": "Még nincs szerzőségi identitás. Futtasd: 'identity --create', vagy ágyazz be egyszer.",
+    "cli.identity.exported_public": "Publikus kulcs kiírva: {path} (identitás {fp}).",
+    "cli.identity.exported": "Privát identitás exportálva (jelszóval titkosítva): {path}.",
+    "cli.identity.imported": "Identitás importálva: {fp}",
+    "cli.extract.signed_ok": "[Szerzőség] ÉRVÉNYES aláírás — aláíró: {signer}, ekkor: {created}.",
+    "cli.extract.signed_bad": "[Szerzőség] Az aláírás NEM érvényes ({reason}).",
     "cli.extract.header": "--- Kiolvasott üzenet ---",
     "cli.extract.lsb": "[LSB réteg] Üzenet visszanyerve: {message!r}",
     "cli.extract.robust": "[Robusztus réteg] LSB elveszett; ID={id} -> registry -> {message!r}",
@@ -119,7 +156,29 @@ CATALOG = {
     "gui.title": "Szteganográfia — több rétegű (LSB + robusztus DCT + látható)",
     "gui.tab.encode": "  🔒 Elrejtés  ",
     "gui.tab.decode": "  🔓 Kiolvasás  ",
+    "gui.tab.settings": "  ⚙ Beállítások  ",
     "gui.language": "Nyelv:",
+    "gui.settings.metadata_frame": "Kép metaadat (EXIF) — címke, nem bizonyíték",
+    "gui.settings.author": "Szerző:",
+    "gui.settings.copyright": "Copyright:",
+    "gui.settings.write_metadata": "Szerzőségi metaadat írása a mentett képekbe",
+    "gui.settings.metadata_note": (
+        "Ezek a mezők szabványos EXIF / PNG tagekbe kerülnek, hogy az Intéző vagy "
+        "a Lightroom is mutassa őket. Bárki szerkesztheti vagy letörölheti — ez "
+        "kényelmi funkció, NEM bizonyíték. A bizonyíték a lenti aláírás. A forrás "
+        "kép saját metaadata mindig megőrződik."
+    ),
+    "gui.settings.identity_frame": "Szerzőségi aláírás — a valódi bizonyíték",
+    "gui.settings.sign": "Minden kép aláírása a szerzőségi identitásommal (ajánlott)",
+    "gui.settings.identity_fp": "Identitás: {fp}",
+    "gui.settings.identity_none": "Identitás: még nincs (az első aláírt beágyazáskor jön létre).",
+    "gui.settings.export_public": "Publikus kulcs exportálása…",
+    "gui.settings.save": "Beállítások mentése",
+    "gui.settings.saved": "Beállítások elmentve.",
+    "gui.settings.exported": "Publikus kulcs exportálva.",
+    "gui.info.signed_ok": " • aláírva ✓ {signer}",
+    "gui.info.signed_bad": " • aláírás ✗ ({reason})",
+    "gui.err.key_required": "Kulcs megadása kötelező — adj meg egyet a folytatáshoz.",
     "gui.about": "Névjegy",
     "gui.about.title": "A stashpix névjegye",
     "gui.about.body": (

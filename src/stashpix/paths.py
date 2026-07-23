@@ -30,6 +30,7 @@ REGISTRY_FILENAME = "registry.json"
 REFS_DIRNAME = "stashpix_refs"
 LEGACY_REFS_DIRNAME = "stashpix_refs"
 REGISTRY_KEY_FILENAME = ".registry_key"
+IDENTITY_KEY_FILENAME = ".identity_ed25519"
 
 _log = logging.getLogger(__name__)
 _migration_done = False
@@ -98,15 +99,22 @@ def registry_key_path() -> Path:
     return app_home() / REGISTRY_KEY_FILENAME
 
 
+def identity_key_path() -> Path:
+    """Path to the owner's Ed25519 authorship identity (wrapped at rest)."""
+    return app_home() / IDENTITY_KEY_FILENAME
+
+
 __all__ = [
     "APP_DIR_NAME",
     "LEGACY_APP_DIR_NAME",
     "REGISTRY_FILENAME",
     "REFS_DIRNAME",
     "REGISTRY_KEY_FILENAME",
+    "IDENTITY_KEY_FILENAME",
     "asset_path",
     "app_home",
     "default_registry_path",
     "default_refs_dir",
     "registry_key_path",
+    "identity_key_path",
 ]
